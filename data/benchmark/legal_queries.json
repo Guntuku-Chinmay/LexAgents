@@ -1,0 +1,47 @@
+[
+  {
+    "id": "q_01",
+    "question": "If a landlord in California fails to provide an itemized security deposit deduction list within 21 days, does he lose the right to make deductions for damages, and can he still sue the tenant?",
+    "jurisdiction": "California",
+    "expected_sources": [
+      "california_civil_code_section_1950_5.txt",
+      "granberry_v_covas_1999.txt"
+    ],
+    "reference_answer": "Yes. Under California Civil Code Section 1950.5(g)(1), a landlord must furnish an itemized statement and return the remaining deposit within 21 calendar days. In Granberry v. Covas (1999), the Supreme Court of California held that failure to comply with this 21-day deadline results in forfeiture of the right to retain the security deposit. However, the court also clarified that the landlord's underlying claim for damages is not extinguished; they may still sue the tenant in an independent action to recover costs for repairs, cleaning, or unpaid rent.",
+    "relevant_documents": ["california_civil_code_section_1950_5.txt", "granberry_v_covas_1999.txt"],
+    "metadata": {
+      "topic": "security deposit forfeiture",
+      "complexity": "medium"
+    }
+  },
+  {
+    "id": "q_02",
+    "question": "Is a tenant entitled to double statutory damages automatically if the landlord makes excessive deductions from a security deposit under California law?",
+    "jurisdiction": "California",
+    "expected_sources": [
+      "california_civil_code_section_1950_5.txt",
+      "hamilton_v_smith_2011.txt"
+    ],
+    "reference_answer": "No. California Civil Code Section 1950.5(l) permits statutory damages of up to twice the amount of the security deposit for 'bad faith' retention of a deposit. In Hamilton v. Smith (2011), the Court of Appeal ruled that 'bad faith' requires intentional dishonesty, self-dealing, or moral obliquity. An honest but mistaken dispute over deductions (such as painting or carpet wear and tear) does not constitute bad faith, meaning statutory damages are not awarded automatically and require a showing of bad faith.",
+    "relevant_documents": ["california_civil_code_section_1950_5.txt", "hamilton_v_smith_2011.txt"],
+    "metadata": {
+      "topic": "statutory damages bad faith",
+      "complexity": "medium"
+    }
+  },
+  {
+    "id": "q_03",
+    "question": "In the provided lease agreement for 456 Oak Street, the landlord claims they have 30 days to return the security deposit. Is this clause legally enforceable under California law?",
+    "jurisdiction": "California",
+    "expected_sources": [
+      "california_civil_code_section_1950_5.txt",
+      "sample_lease_agreement.txt"
+    ],
+    "reference_answer": "No. Under California Civil Code Section 1950.5(g)(1), the statutory timeline is 21 calendar days and is mandatory. In California, statutory tenant protections under Civil Code Section 1950.5 cannot be waived by contract. Any clause in a lease agreement extending the refund period to 30 days is void and unenforceable as a matter of public policy.",
+    "relevant_documents": ["california_civil_code_section_1950_5.txt", "sample_lease_agreement.txt"],
+    "metadata": {
+      "topic": "contractual waiver of tenant rights",
+      "complexity": "high"
+    }
+  }
+]

@@ -1,0 +1,13 @@
+HAMILTON V. SMITH (2011)
+California Court of Appeal, Second District
+Docket No. B221845. Decided November 14, 2011.
+
+SUMMARY:
+A former tenant sued her landlord for return of her $2,000 security deposit and statutory bad faith damages under California Civil Code Section 1950.5(l). The landlord had deducted $1,800 for painting and carpet replacement. The trial court found the deductions were excessive but declined to award bad faith damages. The tenant appealed.
+
+OPINION BY JUSTICE ABBOT:
+The primary issue on appeal is the standard for awarding statutory damages for a landlord's "bad faith" claim or retention of a security deposit under Civil Code Section 1950.5, subdivision (l). The tenant contends that any deduction found by a court to be unreasonable or incorrect is per se a bad faith retention.
+
+We disagree. The term "bad faith" implies a dishonest purpose, self-dealing, or moral obliquity. It is more than mere negligence or a good faith mistake. Under Section 1950.5(l), the court may award statutory damages of up to twice the deposit amount only if the landlord's retention was motivated by bad faith.
+
+Here, the record supports the trial court's finding that the landlord acted in good faith, albeit mistakenly. The landlord believed the painting and carpet replacement were necessitated by tenant damage beyond ordinary wear and tear. Although the trial court ultimately determined that these repairs were part of ordinary wear and tear and ordered the landlord to refund the deductions, there was no evidence of intentional deception, harassment, or self-dealing. Consequently, the trial court did not abuse its discretion in refusing to award bad faith damages.

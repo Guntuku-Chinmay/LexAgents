@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexAgents - Legal Research System</title>
+    <!-- Google Fonts Inter for clean, legible legal typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- Left Sidebar: Workspace & Ingestion -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="app-title">LexAgents</h1>
+                <p class="app-subtitle">Autonomous Legal RAG System</p>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" id="tab-chat">Research Workspace</button>
+                <button class="nav-btn" id="tab-eval">Evaluation Engine</button>
+            </nav>
+            
+            <div class="workspace-section">
+                <h3>Document Upload</h3>
+                <p class="section-desc">Ingest legal files (.txt, .md, .json) into the vector database.</p>
+                
+                <form id="upload-form" class="upload-area">
+                    <label for="file-input" class="upload-label">
+                        <span>Select legal document</span>
+                        <input type="file" id="file-input" accept=".txt,.md,.json" required>
+                    </label>
+                    <button type="submit" class="btn btn-secondary">Upload & Index</button>
+                </form>
+                <div id="upload-status" class="status-msg"></div>
+            </div>
+
+            <div class="disclaimer-section">
+                <strong>Important Notice:</strong>
+                <p>This is an AI-assisted legal research platform designed for educational and research evaluation. It does NOT provide automated legal advice or replace a human attorney.</p>
+                <span class="badge">Jurisdiction: California / US Civil</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Tab 1: Research Chat Panel -->
+            <section id="pane-chat" class="pane active">
+                <div class="pane-header">
+                    <h2>Legal Research Portal</h2>
+                    <p>Pose complex legal queries to retrieve, verify, and synthesize authoritative evidence.</p>
+                </div>
+
+                <!-- Input section -->
+                <div class="search-box-container">
+                    <textarea id="query-input" placeholder="e.g., If a landlord fails to return the security deposit in 21 days but claims the lease contract permits 30 days, is it enforceable? Does the landlord lose the right to sue for damages?"></textarea>
+                    <div class="search-actions">
+                        <label class="toggle-container">
+                            <input type="checkbox" id="web-toggle" checked>
+                            <span class="toggle-label">Enable Web Search Agent</span>
+                        </label>
+                        <button id="run-btn" class="btn btn-primary">Conduct Research</button>
+                    </div>
+                </div>
+
+                <!-- Loader -->
+                <div id="research-loader" class="loader-container hidden">
+                    <div class="spinner"></div>
+                    <p id="loader-status">Coordinator decomposing query and dispatching specialized agents...</p>
+                </div>
+
+                <!-- Result Presentation -->
+                <div id="research-results" class="results-container hidden">
+                    
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-label">Iterations</span>
+                            <span class="stat-value" id="res-iterations">-</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Time Elapsed</span>
+                            <span class="stat-value" id="res-latency">-</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Status</span>
+                            <span class="stat-value status-good" id="res-status">Verified</span>
+                        </div>
+                    </div>
+
+                    <!-- Synthesis Answer Section -->
+                    <article class="answer-card">
+                        <h3>Synthesized Opinion</h3>
+                        <div id="res-answer" class="answer-text"></div>
+                    </article>
+
+                    <!-- Double pane for Verification & Citations -->
+                    <div class="two-column-grid">
+                        <!-- Column 1: Verification Inspector -->
+                        <div class="verification-panel">
+                            <h3>Verification Matrix</h3>
+                            <p class="panel-desc">Semantic factuality validation of claims against active source passages.</p>
+                            <div id="res-verification" class="verification-list"></div>
+                        </div>
+
+                        <!-- Column 2: Citation Panel -->
+                        <div class="citation-panel">
+                            <h3>Authoritative Evidence Pool</h3>
+                            <p class="panel-desc">Grounded legal text retrieved and verified in the process.</p>
+                            <div id="res-citations" class="citation-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Expandable Research Trace -->
+                    <details class="trace-details">
+                        <summary class="trace-summary">View Detailed Agent Execution Trace</summary>
+                        <div class="trace-timeline" id="res-trace"></div>
+                    </details>
+                </div>
+            </section>
+
+            <!-- Tab 2: Evaluation Dashboard Panel -->
+            <section id="pane-eval" class="pane">
+                <div class="pane-header">
+                    <h2>Evaluation Engine</h2>
+                    <p>Run standardized reproducibility experiments comparing LexAgents multi-agent pipelines against baseline configurations.</p>
+                </div>
+
+                <div class="eval-actions">
+                    <button id="run-eval-btn" class="btn btn-primary">Run System Evaluation Benchmark</button>
+                    <div id="eval-loader" class="loader-container hidden">
+                        <div class="spinner"></div>
+                        <p>Executing pipeline evaluations on the benchmark questions dataset...</p>
+                    </div>
+                </div>
+
+                <div id="eval-results-container" class="eval-results hidden">
+                    <h3>Benchmark Comparison Metrics</h3>
+                    
+                    <div class="table-responsive">
+                        <table class="metrics-table">
+                            <thead>
+                                <tr>
+                                    <th>System Pipeline</th>
+                                    <th>Avg Latency</th>
+                                    <th>Avg Iterations</th>
+                                    <th>Retrieval Precision</th>
+                                    <th>Retrieval Recall</th>
+                                    <th>Citation Precision</th>
+                                    <th>Citation Recall</th>
+                                    <th>Unsupported Claim Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eval-metrics-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="eval-visuals">
+                        <div class="visual-card">
+                            <h3>Performance Comparison Plot</h3>
+                            <p class="panel-desc">Visual comparison of retrieval recall, citation precision, and unsupported claim rates.</p>
+                            <div class="chart-wrapper">
+                                <img id="eval-chart-img" src="" alt="Comparison Chart will appear here after evaluation" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="historical-evals-section">
+                    <h3>Recent Evaluation Runs</h3>
+                    <div id="historical-evals-list" class="eval-history-list"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
