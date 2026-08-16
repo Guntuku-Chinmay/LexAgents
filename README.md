@@ -2,152 +2,157 @@
 
 LexAgents is a research-grade prototype of a **Multi-Agent Collaborative Retrieval-Augmented Generation (RAG)** system designed specifically for legal research. It structures and orchestrates specialized retrieval agents, conducts programmatically grounded citation verification, and implements iterative self-reflection to resolve unsupported claims.
 
+This version features a modernized full-stack architecture with a **Next.js React Client** and a **PostgreSQL relational storage** engine.
+
 ## 1. Research Hypothesis
 *A multi-agent collaborative RAG architecture with specialized retrieval agents, factual verification, and iterative self-reflection improves citation correctness, groundedness, and overall reliability of legal research compared to conventional single-pipeline vector RAG.*
 
 ---
 
-## 2. Core Architecture
+## 2. System Architecture
 
-The system decomposes complex legal queries into targeted search tasks, dispatches them to domain-specific retrieval agents, synthesizes a structured report, verifies every generated claim against raw sources, and reflects on whether additional retrieval loop iterations are required.
-
-```
-       User Query
-           │
-           ▼
-  Coordinator Agent (Task Decomposition)
-           │
-    ┌──────┼──────┬──────────────────────┐
-    │      │      │                      │
-    ▼      ▼      ▼                      ▼
-Case Law Statute Legal Document Web Research
-Agent    Agent   Agent          Agent
-    │      │      │                      │
-    └──────┼──────┴──────────────────────┘
-           ▼
-   Evidence Aggregator (Deduplication)
-           │
-           ▼
-    Synthesis Agent (Citation Grounding)
-           │
-           ▼
-   Verification Agent (Factual Claim Check)
-           │
-           ▼
-   Reflection Loop Control ────[Insufficient Evidence?]────► (Refined Search Loop)
-           │
-           ▼ (Yes, or Max Iteration Limit)
-      Final Answer
+```text
+                         ┌──────────────────────────┐
+                         │       Next.js App        │
+                         │ React + TypeScript       │
+                         │ Tailwind CSS             │
+                         └────────────┬─────────────┘
+                                      │
+                              REST / Streaming API
+                                      │
+                         ┌────────────▼─────────────┐
+                         │      FastAPI Backend      │
+                         │       Python / AI         │
+                         └────────────┬─────────────┘
+                                      │
+          ┌───────────────────────────┼───────────────────────────┐
+          │                           │                           │
+          ▼                           ▼                           ▼
+    PostgreSQL                    Qdrant                    Redis Optional
+    Application State             Vector Search             Cache / Jobs
+    Agent Traces                  Legal Chunks              (Omitted / Local)
+    Research Sessions
+    Evaluation Results
+          │                           │
+          └───────────────────────────┼───────────────────────────┘
+                                      │
+                         ┌────────────▼─────────────┐
+                         │      LexAgents Engine     │
+                         │                          │
+                         │ Coordinator              │
+                         │ Case Law Agent           │
+                         │ Statute Agent            │
+                         │ Legal Document Agent     │
+                         │ Web Research Agent       │
+                         │ Synthesis                │
+                         │ Verification             │
+                         │ Reflection               │
+                         └──────────────────────────┘
 ```
 
 ---
 
 ## 3. Technology Stack
-- **Language**: Python (v3.10+)
-- **API Framework**: FastAPI, Uvicorn
-- **Vector Database**: Qdrant (using local path storage, no Docker required for simpler setup)
-- **BM25 Search**: Rank-BM25 on tokenized passages
-- **Orchestration**: Direct Graph Loop Runner (custom Python Orchestrator)
-- **Database**: SQLite3 (for session history, trace event logging, and evaluation runs)
-- **Frontend**: Vanilla CSS & JavaScript served directly from FastAPI
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide Icons.
+- **Backend API**: FastAPI, Uvicorn, Python 3.10+
+- **Relational Storage**: PostgreSQL (using SQLAlchemy with automatic local SQLite file fallback)
+- **Vector Database**: Qdrant (using local path storage or local cluster)
+- **Sparse BM25 Indexing**: Rank-BM25 on tokenized passages
+- **Orchestrator**: Custom python Directed Graph state loop
 
 ---
 
-## 4. Project Directory Structure
+## 4. Directory Layout
 ```
 LexAgents/
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # FastAPI routes
-│   │   ├── agents/       # Agent modules (Coordinator, Case Law, Statute, Web, etc.)
-│   │   ├── core/         # Configuration, Settings, LLM wrappers
-│   │   ├── database/     # SQLite database manager
-│   │   ├── evaluation/   # Evaluation run executor and metric calculators
-│   │   ├── ingestion/    # Document parsers, chunkers, indexers
-│   │   ├── models/       # Pydantic schema representations
-│   │   ├── retrieval/    # Hybrid Vector + BM25 RRF retriever
-│   │   └── main.py       # FastAPI application entrypoint
-│   └── tests/            # Pytest test suite (100% mock-compatible)
-├── frontend/             # Single-page web portal (HTML, CSS, JS)
+│   │   ├── api/          # FastAPI REST endpoints
+│   │   ├── agents/       # Multi-agent engines (coordinator, case, statute, web, verification, reflection)
+│   │   ├── core/         # Settings configuration & LLM simulator
+│   │   ├── database/     # SQLAlchemy models & relational DBManager
+│   │   ├── evaluation/   # Benchmark metric compilations & plotter
+│   │   ├── models/       # Pydantic schema validation
+│   │   ├── retrieval/    # Hybrid Vector+BM25 retriever
+│   │   └── main.py       # FastAPI server entrypoint
+│   ├── tests/            # Test suite (100% mock compliant)
+│   └── Dockerfile        # Backend image configuration
+├── frontend/
+│   ├── app/              # Next.js layout, page, and CSS
+│   ├── components/       # UI panels (Research workspace, timelines, claim verifiers, evaluation dashboard)
+│   ├── lib/              # API wrappers and TypeScript interfaces
+│   ├── package.json      # Frontend package details
+│   ├── tsconfig.json     # TypeScript settings
+│   └── Dockerfile        # Next.js image configuration
 ├── data/
-│   ├── corpus/           # Local cases and statutes raw text database
-│   └── benchmark/        # Reproducibility legal queries evaluation dataset
-├── scripts/              # Bootstrap and evaluation execution triggers
-├── configs/              # Configurations
-├── experiments/          # Evaluation report outputs, tables, and comparison charts
-├── requirements.txt      # Python dependencies
-├── .env.example          # Environment variables template
-└── .gitignore
+│   ├── corpus/           # Seed court cases and statutes
+│   └── benchmark/        # Golden standard legal evaluation scenarios
+├── experiments/          # Metric reports, CSVs, and comparison charts
+├── docker-compose.yml    # Full stack local orchestration configuration
+├── requirements.txt      # Backend Python dependencies
+└── .env.example          # Environment variables template
 ```
 
 ---
 
-## 5. Quick Start Setup
+## 5. Quick Start Local Setup
 
-### Prerequisites
-- Python 3.10 or higher
-- `pip` or `uv` package manager
-
-### Installation
-1. Clone the repository and navigate into it:
-   ```bash
-   git clone https://github.com/Guntuku-Chinmay/LexAgents.git
-   cd LexAgents
-   ```
-2. Create and activate a virtual environment:
+### 1. Backend Setup
+1. Activate virtual environment and install requirements:
    ```bash
    python -m venv .venv
-   # On Windows:
-   .venv\Scripts\activate
-   # On Unix/macOS:
-   source .venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
+   .venv\Scripts\activate   # On Windows
    pip install -r requirements.txt
    ```
-4. Copy the `.env.example` to `.env` and set your API keys:
+2. Copy and set environment variables:
    ```bash
    cp .env.example .env
    ```
+3. Initialize the database and seed case/statutory indexes:
+   ```bash
+   python scripts/bootstrap_corpus.py
+   ```
+4. Start API server:
+   ```bash
+   python -m uvicorn backend.app.main:app --reload --port 8000
+   ```
+
+### 2. Frontend Setup
+1. Navigate to the client folder and install Node packages:
+   ```bash
+   cd frontend
+   npm install
+   ```
+2. Launch Next.js dev server:
+   ```bash
+   npm run dev
+   ```
+3. Open [http://localhost:3000](http://localhost:3000) in your web browser.
 
 ---
 
-## 6. Running the System
-
-### 1. Ingest/Bootstrap the Sample Corpus
-Populates the Qdrant vector database and SQLite metadata stores with sample California tenant deposit statutes and related landmark case law:
+## 6. Docker Compose Setup (Recommended)
+You can run the entire system (Next.js, FastAPI, Postgres, Qdrant) in one command:
 ```bash
-python scripts/bootstrap_corpus.py
+docker-compose up --build
 ```
-
-### 2. Run the Web Application
-Launch the FastAPI backend server:
-```bash
-python -m uvicorn backend.app.main:app --reload --port 8000
-```
-Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your web browser.
-
-### 3. Run Reproducible Evaluations
-Run the pipeline evaluation against the benchmark dataset and generate plots:
-```bash
-python scripts/run_eval.py
-```
-This writes the following metrics and visual comparisons under the `experiments/results/` directory:
-- `summary_table.csv`
-- `report.md`
-- `comparison_chart.png`
-
-### 4. Run Automated Tests
-```bash
-python -m pytest backend/tests/
-```
+- Access Frontend Client: [http://localhost:3000](http://localhost:3000)
+- Access Backend API: [http://localhost:8000](http://localhost:8000)
+- Access Qdrant Admin Panel: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
 
 ---
 
-## 7. Configuration Variables
-Modify these inside your `.env` file:
-- `OPENAI_API_KEY`: API Key for LLM and embedding access. Defaults to `mock-key-for-testing` which triggers mock-mode locally for testing/dry runs.
-- `LLM_MODEL`: LLM Model (default: `gpt-4o-mini`).
-- `EMBEDDING_MODEL`: Embedding model (default: `text-embedding-3-small`).
-- `WEB_SEARCH_ENABLED`: Set to `True`/`False` to toggle duckduckgo web crawling.
+## 7. Running Reproducible Evaluations
+To run evaluation comparisons and compile metrics across pipelines:
+```bash
+# In the root folder:
+.venv\Scripts\python scripts/run_eval.py
+```
+This triggers evaluations on golden-standard queries and regenerates the performance report and charts under the `experiments/results/` directory.
+
+---
+
+## 8. Running Automated Tests
+```bash
+.venv\Scripts\python -m pytest backend/tests/
+```

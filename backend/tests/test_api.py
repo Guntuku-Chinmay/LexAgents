@@ -72,3 +72,19 @@ def test_evaluation_endpoints(client):
     response_history = client.get("/api/evaluation/results")
     assert response_history.status_code == 200
     assert len(response_history.json()) > 0
+
+def test_get_observability_api(client):
+    import uuid
+    session_id = str(uuid.uuid4())
+    db.create_session(session_id, "Test Query")
+    db.add_log(session_id, "Decomposition (Iteration 1)", "trace", {
+        "tasks": [{"query": "subtask 1", "agent": "statute", "reason": "reason 1"}]
+    })
+    
+    response = client.get(f"/api/sessions/{session_id}/observability")
+    assert response.status_code == 200
+    data = response.json()
+    assert "session" in data
+    assert "observability" in data
+    assert len(data["observability"]["tasks"]) > 0
+    assert data["observability"]["tasks"][0]["agent_name"] == "statute"

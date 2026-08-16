@@ -1,6 +1,7 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from typing import Optional
 
 class Settings(BaseSettings):
     # LLM & Embedding Settings
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
     # Storage Settings
     QDRANT_STORAGE_PATH: str = Field(default="data/qdrant_db")
     SQLITE_DB_PATH: str = Field(default="backend/app/database/lexagents.db")
+    
+    # PostgreSQL configuration URL (optional, fallback to SQLite if not provided)
+    DATABASE_URL: Optional[str] = Field(default=None)
 
     # API Settings
     PORT: int = Field(default=8000)

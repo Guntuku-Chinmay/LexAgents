@@ -1,87 +1,91 @@
-# Local Setup Guide
+# Setup & Installation Guide
 
-This guide provides step-by-step instructions to configure, initialize, and run LexAgents on Windows.
+This document describes how to configure, initialize, and deploy LexAgents in your local environment or using Docker.
 
 ---
 
-## 1. Environment Setup
+## 1. Prerequisites
+- **Python 3.10+**
+- **Node.js 18+** & `npm`
+- **Docker** & **Docker Compose** (Optional, recommended for PostgreSQL/Qdrant services)
 
-Ensure you have **Python 3.10+** installed on your system.
+---
 
-1. **Clone the repository**:
-   ```powershell
+## 2. Option A: Quickstart via Docker Compose (Recommended)
+
+You can run the entire system with zero manual service setup using Docker Compose:
+
+1. Clone the repository:
+   ```bash
    git clone https://github.com/Guntuku-Chinmay/LexAgents.git
    cd LexAgents
    ```
+2. Build and launch all services:
+   ```bash
+   docker-compose up --build
+   ```
+This starts:
+- **Next.js Web Client**: [http://localhost:3000](http://localhost:3000)
+- **FastAPI backend API**: [http://localhost:8000](http://localhost:8000)
+- **PostgreSQL Database**: Port `5432`
+- **Qdrant Vector DB**: Port `6333`
 
-2. **Create Python virtual environment**:
-   Using `uv` (recommended for speed) or python:
-   ```powershell
-   # Using uv:
-   uv venv
-   # Or using standard python:
+---
+
+## 3. Option B: Local Manual Setup
+
+If you prefer to run services manually on your local system:
+
+### 1. Backend REST API
+1. Navigate to the root directory and create virtual environment:
+   ```bash
    python -m venv .venv
+   .venv\Scripts\activate   # On Windows
+   # or
+   source .venv/bin/activate # On macOS/Linux
    ```
-
-3. **Activate the virtual environment**:
-   ```powershell
-   .venv\Scripts\activate
-   ```
-
-4. **Install Python packages**:
-   ```powershell
-   # Using uv:
-   uv pip install -r requirements.txt
-   # Or using pip:
+2. Install Python dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
+3. Copy environment template to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+4. Adjust config variables in `.env`:
+   - `OPENAI_API_KEY`: Set your OpenAI key. Defaults to `mock-key-for-testing` to run in mock mode.
+   - `DATABASE_URL`: Set PostgreSQL URL. If left empty, SQLAlchemy automatically falls back to local SQLite files under `backend/app/database/lexagents.db`.
+5. Bootstrap/seed Qdrant indexes and SQLite/PostgreSQL tables:
+   ```bash
+   python scripts/bootstrap_corpus.py
+   ```
+6. Start backend FastAPI server:
+   ```bash
+   python -m uvicorn backend.app.main:app --reload --port 8000
+   ```
+
+### 2. Next.js Frontend Client
+1. Navigate to the client directory:
+   ```bash
+   cd frontend
+   ```
+2. Install Node modules:
+   ```bash
+   npm install
+   ```
+3. Start local development server:
+   ```bash
+   npm run dev
+   ```
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 2. Configuration Settings (`.env`)
+## 4. Environment Variables Reference (`.env`)
 
-Copy the env template:
-```powershell
-cp .env.example .env
-```
-
-Open `.env` in a text editor and adjust the settings:
-- **`OPENAI_API_KEY`**: Set your OpenAI API key. If left blank or set to `mock-key-for-testing`, the system runs in an offline Simulator mode.
-- **`OPENAI_API_BASE`**: Base URL for OpenAI-compatible LLM endpoints.
-- **`LLM_MODEL`**: Chat model (e.g., `gpt-4o-mini`, `gpt-4o`).
-- **`EMBEDDING_MODEL`**: Embedding model (e.g., `text-embedding-3-small`).
-- **`WEB_SEARCH_ENABLED`**: Set to `True` or `False` to toggle internet search access.
-
----
-
-## 3. Seed/Bootstrap Corpus
-
-Before running queries, initialize the vector index and SQLite database with the sample tenant-landlord statutes and court cases:
-```powershell
-python scripts/bootstrap_corpus.py
-```
-This script:
-1. Deletes any old test collections in Qdrant.
-2. Ingests Cases (`data/corpus/cases/`) into Qdrant `cases`.
-3. Ingests Statutes (`data/corpus/statutes/`) into Qdrant `statutes`.
-4. Ingests the Lease Agreement (`data/corpus/sample_lease_agreement.txt`) into Qdrant `legal_documents`.
-
----
-
-## 4. Run Server & Web UI
-
-Start the backend application:
-```powershell
-python -m uvicorn backend.app.main:app --reload --port 8000
-```
-- Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your web browser.
-- Access API interactive docs at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
-
----
-
-## 5. Troubleshooting Windows Issues
-
-- **`PermissionError: [WinError 32]`**:
-  This happens during test teardown if SQLite file handles remain locked. It is harmless as the `clean_database` fixture clears the tables before every test. We have wrapped the teardown deletions in try-except blocks to prevent this from failing tests.
-- **Qdrant local collection API**:
-  If you see `'QdrantClient' object has no attribute 'search'`, make sure you have `qdrant-client>=1.6.0` installed. In recent versions of `qdrant-client` under local/in-memory mode, we use `client.query_points()` instead of `.search()`, which has been fully handled in this codebase.
+- `OPENAI_API_KEY`: API Key. If set to `mock-key-for-testing`, triggers local offline simulator.
+- `LLM_MODEL`: Model name (default: `gpt-4o-mini`).
+- `EMBEDDING_MODEL`: Embedding model (default: `text-embedding-3-small`).
+- `DATABASE_URL`: PostgreSQL connection URL (e.g. `postgresql://postgres:postgrespassword@localhost:5432/lexagents`).
+- `QDRANT_STORAGE_PATH`: Local directory path for Qdrant storage.
+- `WEB_SEARCH_ENABLED`: Set `True`/`False` to toggle web search agent capabilities.

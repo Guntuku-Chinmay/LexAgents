@@ -25,3 +25,8 @@ Thumbs.db
 # Output and results
 experiments/results/
 backend/tests/.pytest_cache/
+data/test_qdrant_db/
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+*.log

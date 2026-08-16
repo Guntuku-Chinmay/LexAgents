@@ -188,3 +188,17 @@ def get_evaluation_runs():
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/sessions/{session_id}/observability")
+def get_session_observability(session_id: str):
+    """
+    Fetch structured relational database observability logs for the research timeline and verification panels.
+    """
+    session = db.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session ID not found.")
+    data = db.get_observability_data(session_id)
+    return {
+        "session": session,
+        "observability": data
+    }
