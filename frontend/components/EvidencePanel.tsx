@@ -37,10 +37,21 @@ export default function EvidencePanel({ citations, selectedEvidenceId }: Evidenc
 
   const getDocIcon = (type: string) => {
     switch (type) {
+      case "sc_judgment":
+      case "hc_judgment":
       case "case":
         return <Gavel className="h-4 w-4 text-cyan-400" />;
+      case "constitutional":
+      case "constitutional_amendment":
+        return <Award className="h-4 w-4 text-amber-400" />;
+      case "central_act":
+      case "state_act":
+      case "rules":
+      case "regulation":
+      case "government_circular":
       case "statute":
         return <FileText className="h-4 w-4 text-emerald-400" />;
+      case "external_source":
       case "web":
         return <Globe className="h-4 w-4 text-blue-400" />;
       default:
@@ -78,19 +89,34 @@ export default function EvidencePanel({ citations, selectedEvidenceId }: Evidenc
                   : "bg-gray-900 border-gray-850 hover:border-gray-800"
               }`}
             >
-              <div className="flex items-center justify-between border-b border-gray-850 pb-2">
+              <div className="flex items-center justify-between border-b border-gray-850 pb-2 flex-wrap gap-2">
                 <div className="flex items-center space-x-2">
                   {getDocIcon(item.doc_type)}
                   <span className="text-xs font-bold text-white truncate max-w-[180px] md:max-w-[220px]">
                     {item.source}
                   </span>
                 </div>
-                <div className="flex items-center space-x-1.5">
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-950 text-gray-400 uppercase">
-                    {item.doc_type}
+                <div className="flex items-center space-x-1.5 flex-wrap gap-1">
+                  {item.authority_level && (
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      item.authority_level === "TIER 1" ? "border-amber-500/30 bg-amber-950/20 text-amber-400" :
+                      item.authority_level === "TIER 2" ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-400" :
+                      item.authority_level === "TIER 3" ? "border-sky-500/30 bg-sky-950/20 text-sky-400" :
+                      "border-gray-800 bg-gray-950 text-gray-400"
+                    }`}>
+                      {item.authority_level}
+                    </span>
+                  )}
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-950 text-gray-400 uppercase border border-gray-850">
+                    {item.doc_type.replace("_", " ")}
                   </span>
+                  {item.retrieval_method && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-900 border border-gray-850 text-gray-500 uppercase">
+                      {item.retrieval_method.replace("_", " ")}
+                    </span>
+                  )}
                   {displayScore && (
-                    <span className="text-[10px] font-mono font-bold text-teal-400 flex items-center space-x-0.5">
+                    <span className="text-[9px] font-mono font-bold text-teal-400 flex items-center space-x-0.5">
                       <Award className="h-3 w-3" />
                       <span>{displayScore}</span>
                     </span>

@@ -2,9 +2,13 @@ export interface Evidence {
   id: string;
   text: string;
   source: string;
-  doc_type: string; // 'case' | 'statute' | 'user_upload' | 'web'
+  doc_type: string; // e.g., 'constitutional', 'central_act', 'sc_judgment', 'user_upload', 'external_source'
   score: number;
   metadata: Record<string, any>;
+  source_id?: string;
+  authority_level?: string;
+  retrieval_method?: string;
+  url?: string;
 }
 
 export interface VerificationResult {
@@ -13,6 +17,10 @@ export interface VerificationResult {
   evidence_ids: string[];
   confidence: number;
   issues: string[];
+  claim_id?: string;
+  importance?: string; // 'high' | 'medium' | 'low'
+  verification_status?: string; // 'supported' | 'partially_supported' | 'unsupported' | 'contradicted' | 'insufficient_evidence'
+  evidence_links?: { evidence_id: string; relationship: string }[];
 }
 
 export interface ResearchTraceStep {
@@ -69,6 +77,9 @@ export interface ObservabilityData {
     supported: boolean;
     confidence: number;
     issues: string[];
+    verification_status?: string;
+    importance?: string;
+    evidence_links?: { evidence_id: string; relationship: string }[];
     created_at: string;
   }[];
   reflections: {
