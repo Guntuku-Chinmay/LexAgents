@@ -89,6 +89,8 @@ class VerificationResultModel(Base):
     supported = Column(Boolean, nullable=False)
     confidence = Column(Float, nullable=False)
     issues_json = Column(Text, nullable=True)  # List of issues serialized
+    verification_status = Column(String(100), nullable=True)  # 'supported', 'partially_supported', 'unsupported', 'contradicted', 'insufficient_evidence'
+    importance = Column(String(50), nullable=True)  # 'high', 'medium', 'low'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class ClaimSourceLink(Base):
@@ -96,6 +98,7 @@ class ClaimSourceLink(Base):
     link_id = Column(String(100), primary_key=True)
     verification_id = Column(String(100), nullable=False)
     source_id = Column(String(100), nullable=False)
+    relationship = Column(String(50), nullable=True)  # 'supports', 'contradicts', 'insufficient', 'context_only'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class ReflectionCycle(Base):

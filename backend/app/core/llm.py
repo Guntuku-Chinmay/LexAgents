@@ -82,7 +82,15 @@ def generate_chat_completion(
                             "supported": True,
                             "evidence_index": 1,
                             "confidence": 0.95,
-                            "issues": []
+                            "issues": [],
+                            "importance": "high",
+                            "verification_status": "supported",
+                            "evidence_links": [
+                                {
+                                    "evidence_index": 1,
+                                    "relationship": "supports"
+                                }
+                            ]
                         }
                     ]
                 })

@@ -33,6 +33,10 @@ class VerificationResult(BaseModel):
     citation_correct: bool
     confidence: float
     issues: List[str] = Field(default_factory=list)
+    claim_id: Optional[str] = None
+    importance: Optional[str] = "medium"  # 'high' | 'medium' | 'low'
+    verification_status: Optional[str] = "supported"  # 'supported', 'partially_supported', 'unsupported', 'contradicted', 'insufficient_evidence'
+    evidence_links: Optional[List[Dict[str, str]]] = None  # List of {"evidence_id": "...", "relationship": "supports"}
 
 class ResearchTraceStep(BaseModel):
     step_name: str

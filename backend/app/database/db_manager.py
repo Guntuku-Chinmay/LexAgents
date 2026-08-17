@@ -290,7 +290,6 @@ class DBManager:
                             metadata_json=json.dumps(item.get("metadata", {}))
                         ))
 
-            # 3. Verification logs
             elif "Verification" in step_name and isinstance(payload, dict):
                 for idx, item in enumerate(payload.get("verification_results", [])):
                     claim_text = item.get("claim", "")
@@ -298,6 +297,10 @@ class DBManager:
                     confidence = float(item.get("confidence", 0.5))
                     issues = item.get("issues", [])
                     evidence_ids = item.get("evidence_ids", [])
+                    
+                    status = item.get("verification_status") or ("supported" if supported else "unsupported")
+                    importance = item.get("importance") or "medium"
+                    evidence_links = item.get("evidence_links") or []
                     
                     claim_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{session_id}_claim_{idx}_{step_name[:15]}"))
                     db.merge(DBClaim(
@@ -313,16 +316,32 @@ class DBManager:
                         claim_text=claim_text,
                         supported=supported,
                         confidence=confidence,
-                        issues_json=json.dumps(issues)
+                        issues_json=json.dumps(issues),
+                        verification_status=status,
+                        importance=importance
                     ))
                     
-                    for ev_id in evidence_ids:
-                        link_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{verification_id}_{ev_id}"))
-                        db.merge(ClaimSourceLink(
-                            link_id=link_id,
-                            verification_id=verification_id,
-                            source_id=ev_id
-                        ))
+                    if evidence_links:
+                        for elink in evidence_links:
+                            ev_id = elink.get("evidence_id")
+                            rel = elink.get("relationship") or ("supports" if supported else "contradicts")
+                            if ev_id:
+                                link_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{verification_id}_{ev_id}"))
+                                db.merge(ClaimSourceLink(
+                                    link_id=link_id,
+                                    verification_id=verification_id,
+                                    source_id=ev_id,
+                                    relationship=rel
+                                ))
+                    else:
+                        for ev_id in evidence_ids:
+                            link_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{verification_id}_{ev_id}"))
+                            db.merge(ClaimSourceLink(
+                                link_id=link_id,
+                                verification_id=verification_id,
+                                source_id=ev_id,
+                                relationship="supports" if supported else "contradicts"
+                            ))
 
             # 4. Reflection loops logs
             elif "Reflection" in step_name and isinstance(payload, dict):
@@ -443,6 +462,15 @@ class DBManager:
                         "supported": v.supported,
                         "confidence": v.confidence,
                         "issues": json.loads(v.issues_json) if v.issues_json else [],
+                        "verification_status": v.verification_status,
+                        "importance": v.importance,
+                        "evidence_links": [
+                            {
+                                "evidence_id": link.source_id,
+                                "relationship": link.relationship
+                            }
+                            for link in db.query(ClaimSourceLink).filter_by(verification_id=v.verification_id).all()
+                        ],
                         "created_at": v.created_at.isoformat() if v.created_at else None
                     }
                     for v in verifications

@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 import logging
 from typing import List, Dict, Any
 from backend.app.core.llm import generate_chat_completion
@@ -21,12 +22,15 @@ class VerificationAgent:
                     evidence_ids=[],
                     citation_correct=False,
                     confidence=1.0,
-                    issues=["No source evidence was retrieved, so the answer is ungrounded."]
+                    issues=["No source evidence was retrieved, so the answer is ungrounded."],
+                    claim_id=str(uuid.uuid4()),
+                    importance="high",
+                    verification_status="insufficient_evidence",
+                    evidence_links=[]
                 )
             ]
 
         # 1. Deterministic prep: Map citations inline
-        # Find all citation marks like [1], [2], etc.
         citation_matches = re.findall(r'\[(\d+)\]', answer)
         used_indices = set(int(m) - 1 for m in citation_matches if m.isdigit())
         
@@ -36,7 +40,7 @@ class VerificationAgent:
         for idx, ev in enumerate(evidence):
             evidence_id_map[idx] = ev.id
             evidence_summary.append(
-                f"Source [{idx + 1}] (ID: {ev.id}):\n"
+                f"Source [{idx + 1}] (ID: {ev.id}, Tier: {ev.authority_level}):\n"
                 f"Source Name: {ev.source}\n"
                 f"Text: {ev.text}\n"
                 f"---"
@@ -68,7 +72,15 @@ Your output MUST be a JSON object with this structure:
       "supported": true | false,
       "evidence_index": 1, // The 1-based index of the cited source (e.g. 1 for Source [1]), or null if uncited
       "confidence": 0.95, // Float between 0.0 and 1.0
-      "issues": ["List of discrepancies, e.g., source states 21 days but claim states 30 days"]
+      "issues": ["List of discrepancies, e.g., source states 21 days but claim states 30 days"],
+      "importance": "high" | "medium" | "low",
+      "verification_status": "supported" | "partially_supported" | "unsupported" | "contradicted" | "insufficient_evidence",
+      "evidence_links": [
+         {{
+            "evidence_index": 1,
+            "relationship": "supports" | "contradicts" | "insufficient" | "context_only"
+         }}
+      ]
     }}
   ]
 }}
@@ -93,29 +105,74 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
             
             data = json.loads(clean_text)
             
-            for item in data.get("verification_results", []):
+            for idx_item, item in enumerate(data.get("verification_results", [])):
                 claim = item.get("claim", "")
                 supported = bool(item.get("supported", False))
                 ev_idx = item.get("evidence_index")
                 confidence = float(item.get("confidence", 0.5))
                 issues = item.get("issues", [])
                 
-                # Deterministic check: Verify the evidence index maps to a real source
-                citation_correct = True
-                evidence_ids = []
+                # New fields
+                importance = item.get("importance", "medium")
+                status = item.get("verification_status") or ("supported" if supported else "unsupported")
+                elink_list = item.get("evidence_links") or []
                 
+                evidence_ids = []
+                evidence_links = []
+                citation_correct = True
+                
+                # Parse links
+                for elink in elink_list:
+                    idx_val = elink.get("evidence_index")
+                    rel = elink.get("relationship", "supports")
+                    if idx_val is not None:
+                        try:
+                            zero_based = int(idx_val) - 1
+                            if zero_based in evidence_id_map:
+                                ev_id = evidence_id_map[zero_based]
+                                evidence_ids.append(ev_id)
+                                evidence_links.append({
+                                    "evidence_id": ev_id,
+                                    "relationship": rel
+                                })
+                        except (ValueError, TypeError):
+                            pass
+                
+                # Fallback to ev_idx if links list is empty
+                if not evidence_links and ev_idx is not None:
+                    try:
+                        zero_based_idx = int(ev_idx) - 1
+                        if zero_based_idx in evidence_id_map:
+                            ev_id = evidence_id_map[zero_based_idx]
+                            evidence_ids.append(ev_id)
+                            evidence_links.append({
+                                "evidence_id": ev_id,
+                                "relationship": "supports" if supported else "contradicts"
+                            })
+                    except (ValueError, TypeError):
+                        pass
+
+                # Citation correctness checks
                 if ev_idx is not None:
-                    zero_based_idx = int(ev_idx) - 1
-                    if zero_based_idx in evidence_id_map:
-                        evidence_ids.append(evidence_id_map[zero_based_idx])
-                    else:
+                    try:
+                        zero_based_idx = int(ev_idx) - 1
+                        if zero_based_idx not in evidence_id_map:
+                            citation_correct = False
+                            supported = False
+                            status = "unsupported"
+                            issues.append(f"Invalid citation index [{ev_idx}] - index out of bounds.")
+                    except (ValueError, TypeError):
                         citation_correct = False
                         supported = False
-                        issues.append(f"Invalid citation index [{ev_idx}] - index out of bounds.")
-                else:
+                        status = "unsupported"
+                        issues.append(f"Invalid citation format: {ev_idx}")
+                elif not evidence_links:
                     citation_correct = False
                     supported = False
+                    status = "insufficient_evidence"
                     issues.append("No citation associated with this claim.")
+                
+                claim_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{claim[:40]}_{idx_item}"))
                 
                 verification_results.append(
                     VerificationResult(
@@ -124,12 +181,15 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
                         evidence_ids=evidence_ids,
                         citation_correct=citation_correct,
                         confidence=confidence,
-                        issues=issues
+                        issues=issues,
+                        claim_id=claim_id,
+                        importance=importance,
+                        verification_status=status,
+                        evidence_links=evidence_links
                     )
                 )
         except Exception as e:
             logger.error(f"Verification agent failed: {e}. Falling back to default verification check.")
-            # Fallback for error state
             verification_results.append(
                 VerificationResult(
                     claim="Fallback claim verification",
@@ -137,7 +197,11 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
                     evidence_ids=[],
                     citation_correct=False,
                     confidence=0.0,
-                    issues=[f"Verification service error: {e}"]
+                    issues=[f"Verification service error: {e}"],
+                    claim_id=str(uuid.uuid4()),
+                    importance="high",
+                    verification_status="unsupported",
+                    evidence_links=[]
                 )
             )
 
