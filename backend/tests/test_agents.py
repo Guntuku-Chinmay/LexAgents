@@ -204,3 +204,129 @@ def test_orchestrator_end_to_end_loop():
     trace_logs = db.get_logs(response.session_id)
     assert len(trace_logs) > 0
     assert any(log["step_name"].startswith("Iteration 1 Start") for log in trace_logs)
+
+
+def test_orchestrator_reflection_recovery_loop():
+    from backend.app.core.llm import set_mock_response, clear_mock_responses
+    import uuid
+    
+    # 1. Seed two items
+    uuid_ni = str(uuid.uuid5(uuid.NAMESPACE_DNS, "ni_138_test"))
+    uuid_lease = str(uuid.uuid5(uuid.NAMESPACE_DNS, "lease_test"))
+    
+    # Custom documents index
+    retriever.index_chunks("statutes", [
+        {
+            "id": uuid_ni, 
+            "text": "Under Section 138 of Negotiable Instruments Act, 1881 notice must be given within 30 days.", 
+            "metadata": {"doc_type": "central_act", "section": "138", "filename": "negotiable_instruments_act_1881.txt"}
+        }
+    ])
+    retriever.index_chunks("legal_documents", [
+        {
+            "id": uuid_lease, 
+            "text": "Section 1. Rent shall be paid by cheque. In case of return, payee has 60 days to give notice.", 
+            "metadata": {"doc_type": "user_upload", "filename": "sample_lease_agreement.txt"}
+        }
+    ])
+
+    # Let's register mock responses dynamically to simulate the two-cycle loop
+    # Iteration 2 overrides (highest priority)
+    set_mock_response(
+        "synthesis: negotiable instruments act",
+        {
+            "answer": "No, the 60-day clause is invalid because Section 138 of the Negotiable Instruments Act mandates notice within 30 days [2].",
+            "conflicts": ["Contract clause contradicts Section 138 NI Act"]
+        }
+    )
+    
+    set_mock_response(
+        "verification: clause is invalid",
+        {
+            "verification_results": [
+                {
+                    "claim": "The 60-day notice clause is invalid under Section 138.",
+                    "supported": True,
+                    "evidence_index": 2,
+                    "confidence": 0.98,
+                    "issues": [],
+                    "importance": "high",
+                    "verification_status": "supported",
+                    "evidence_links": [
+                        {"evidence_index": 2, "relationship": "supports"}
+                    ]
+                }
+            ]
+        }
+    )
+    
+    set_mock_response(
+        "reflection: completed using Section 138",
+        {
+            "sufficient": True,
+            "reasoning": "Legality verification completed using Section 138 NI Act.",
+            "follow_up_tasks": []
+        }
+    )
+
+    # General Agent fallbacks (Iteration 1)
+    set_mock_response(
+        "coordinator: Does the cheque notice",
+        {
+            "tasks": [
+                {"query": "cheque notice in lease", "agent": "legal_document", "reason": "inspect lease agreement"}
+            ]
+        }
+    )
+    
+    set_mock_response(
+        "synthesis: payee has 60 days",
+        {
+            "answer": "Yes, under the agreement the landlord has 60 days to issue notice [1].",
+            "conflicts": []
+        }
+    )
+    
+    set_mock_response(
+        "verification: landlord has 60 days",
+        {
+            "verification_results": [
+                {
+                    "claim": "Landlord has 60 days to issue notice.",
+                    "supported": False,
+                    "evidence_index": 1,
+                    "confidence": 0.9,
+                    "issues": ["No statutory basis verified yet."],
+                    "importance": "high",
+                    "verification_status": "insufficient_evidence",
+                    "evidence_links": [
+                        {"evidence_index": 1, "relationship": "insufficient"}
+                    ]
+                }
+            ]
+        }
+    )
+    
+    set_mock_response(
+        "reflection: no statutory basis",
+        {
+            "sufficient": False,
+            "reasoning": "Need to verify if 60 days complies with Section 138 of NI Act.",
+            "follow_up_tasks": [
+                {"query": "completed using Section 138", "agent": "statute", "reason": "verify statutory compliance"}
+            ]
+        }
+    )
+
+    try:
+        response = orchestrator.run_research(
+            "Does the cheque notice clause in the lease comply with Indian law?", 
+            max_iterations=2
+        )
+        
+        assert response.iterations == 2
+        assert "Negotiable Instruments Act" in response.answer
+        assert len(response.verification_results) > 0
+        assert response.verification_results[0].verification_status == "supported"
+    finally:
+        clear_mock_responses()

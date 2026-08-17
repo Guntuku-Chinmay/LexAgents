@@ -43,11 +43,31 @@ def generate_chat_completion(
     
     if MOCK_MODE or settings.OPENAI_API_KEY == "mock-key-for-testing":
         # Check registered mock responses (case-insensitive)
-        for substring, mock_res in _mock_responses.items():
-            if substring.lower() in full_prompt.lower():
-                if isinstance(mock_res, str):
-                    return mock_res
-                return json.dumps(mock_res)
+        for key, mock_res in _mock_responses.items():
+            if ":" in key:
+                agent_type, substring = key.split(":", 1)
+                agent_type = agent_type.strip().lower()
+                substring = substring.strip().lower()
+                
+                is_correct_agent = False
+                if agent_type == "coordinator" and "coordinator agent for lexagents" in full_prompt.lower():
+                    is_correct_agent = True
+                elif agent_type == "synthesis" and "synthesis agent for lexagents" in full_prompt.lower():
+                    is_correct_agent = True
+                elif agent_type == "verification" and "verification agent for lexagents" in full_prompt.lower():
+                    is_correct_agent = True
+                elif agent_type == "reflection" and ("self-reflection agent for lexagents" in full_prompt.lower() or "reflection agent for lexagents" in full_prompt.lower()):
+                    is_correct_agent = True
+                
+                if is_correct_agent and substring in full_prompt.lower():
+                    if isinstance(mock_res, str):
+                        return mock_res
+                    return json.dumps(mock_res)
+            else:
+                if key.lower() in full_prompt.lower():
+                    if isinstance(mock_res, str):
+                        return mock_res
+                    return json.dumps(mock_res)
         
         # Fallback generic mock response depending on json_mode
         if json_mode:
