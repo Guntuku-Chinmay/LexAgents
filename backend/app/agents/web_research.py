@@ -44,9 +44,13 @@ class WebResearchAgent:
                         id=str(uuid.uuid5(uuid.NAMESPACE_URL, href)),
                         text=body,
                         source=f"Web: {title} ({href})",
-                        doc_type="web",
-                        score=0.7,  # Default search match score for web results
-                        metadata=meta
+                        doc_type="external_source",
+                        score=0.7,
+                        metadata=meta,
+                        source_id=str(uuid.uuid5(uuid.NAMESPACE_URL, href)),
+                        authority_level="TIER 4",
+                        retrieval_method="web_search",
+                        url=href
                     )
                 )
         except Exception as e:

@@ -12,13 +12,13 @@ def test_chunk_text():
 
 def test_extract_metadata_from_filename():
     meta_case = extract_metadata_from_filename("brown_v_board_of_education_supreme_court_1954.txt")
-    assert meta_case["doc_type"] == "case"
+    assert meta_case["doc_type"] == "sc_judgment"
     assert "Supreme Court" in meta_case["court"]
-    assert meta_case["date"] == "1954-01-01"
+    assert meta_case["judgment_date"] == "1954-01-01"
     assert "brown v. board of education" in meta_case["case_name"].lower()
 
     meta_statute = extract_metadata_from_filename("california_civil_code_section_1950_5.txt")
-    assert meta_statute["doc_type"] == "statute"
+    assert meta_statute["doc_type"] == "central_act"
     
     meta_custom = extract_metadata_from_filename("my_private_lease.txt")
     assert meta_custom["doc_type"] == "user_upload"
@@ -35,7 +35,7 @@ def test_ingest_file(tmp_path):
     documents = db.get_documents()
     assert len(documents) == 1
     assert documents[0]["filename"] == "mock_statute_code_title_10.txt"
-    assert documents[0]["doc_type"] == "statute"
+    assert documents[0]["doc_type"] == "central_act"
     assert documents[0]["metadata"]["jurisdiction"] == "California"
 
     # Verify indexed in Qdrant collection

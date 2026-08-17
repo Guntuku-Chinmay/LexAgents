@@ -210,6 +210,18 @@ class Orchestrator:
                     if ev.id not in collected_evidence:
                         collected_evidence[ev.id] = ev
                         new_evidence_count += 1
+                    else:
+                        # Deduplicate: preserve highest score and log all retrieval methods
+                        existing = collected_evidence[ev.id]
+                        methods = set((existing.retrieval_method or "").split(","))
+                        methods.add(ev.retrieval_method or "hybrid")
+                        merged_method = ",".join(sorted(list(methods)))
+                        
+                        if ev.score > existing.score:
+                            ev.retrieval_method = merged_method
+                            collected_evidence[ev.id] = ev
+                        else:
+                            existing.retrieval_method = merged_method
 
             add_trace_step(f"Retrieval (Iteration {iteration})", {
                 "retrieved_count": len(iteration_evidence),

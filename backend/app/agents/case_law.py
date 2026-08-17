@@ -31,9 +31,13 @@ class CaseLawAgent:
                         id=r["id"],
                         text=r["text"],
                         source=source_name,
-                        doc_type="case",
+                        doc_type=meta.get("doc_type", "sc_judgment"),
                         score=r["score"],
-                        metadata=meta
+                        metadata=meta,
+                        source_id=meta.get("document_id"),
+                        authority_level=meta.get("authority_level", "TIER 2"),
+                        retrieval_method=r.get("retrieval_method", "hybrid"),
+                        url=meta.get("source_url")
                     )
                 )
             return evidence_list

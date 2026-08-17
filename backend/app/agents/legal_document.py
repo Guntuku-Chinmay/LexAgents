@@ -34,7 +34,11 @@ class LegalDocumentAgent:
                         source=source_name,
                         doc_type="user_upload",
                         score=r["score"],
-                        metadata=meta
+                        metadata=meta,
+                        source_id=meta.get("document_id"),
+                        authority_level="TIER 4",
+                        retrieval_method=r.get("retrieval_method", "hybrid"),
+                        url=meta.get("source_url")
                     )
                 )
             return evidence_list

@@ -60,6 +60,7 @@ def extract_metadata_from_filename(filename: str) -> Dict[str, Any]:
     # Case law check (Supreme Court / High Court)
     if "_v_" in filename.lower() or "_vs_" in filename.lower():
         metadata["case_name"] = basename.replace("_", " ").title()
+        metadata["case_name"] = re.sub(r'\bVs\b|\bV\b', "v.", metadata["case_name"], flags=re.IGNORECASE)
         
         parts = basename.split("_")
         year = None

@@ -10,9 +10,13 @@ class Evidence(BaseModel):
     id: str
     text: str
     source: str
-    doc_type: str  # 'case', 'statute', 'user_upload', 'web'
+    doc_type: str  # e.g., 'constitutional', 'central_act', 'sc_judgment', 'user_upload', 'web'
     score: float
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    source_id: Optional[str] = None
+    authority_level: Optional[str] = "TIER 4"
+    retrieval_method: Optional[str] = "hybrid"
+    url: Optional[str] = None
 
 class TaskDecomposition(BaseModel):
     query: str

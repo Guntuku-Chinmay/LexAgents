@@ -32,9 +32,13 @@ class StatuteAgent:
                         id=r["id"],
                         text=r["text"],
                         source=source_name,
-                        doc_type="statute",
+                        doc_type=meta.get("doc_type", "central_act"),
                         score=r["score"],
-                        metadata=meta
+                        metadata=meta,
+                        source_id=meta.get("document_id"),
+                        authority_level=meta.get("authority_level", "TIER 2"),
+                        retrieval_method=r.get("retrieval_method", "hybrid"),
+                        url=meta.get("source_url")
                     )
                 )
             return evidence_list
