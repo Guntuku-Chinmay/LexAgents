@@ -1,5 +1,5 @@
 import uuid
-from backend.app.retrieval.vector_bm25 import retriever
+from backend.app.retrieval.vector_bm25 import retriever, extract_identifiers_from_query
 
 def test_hybrid_retrieval_and_filtering():
     # 1. Seed some mock data in a test collection
@@ -46,3 +46,40 @@ def test_hybrid_retrieval_and_filtering():
     hybrid_results = retriever.search_hybrid(collection, "California rules", limit=2)
     assert len(hybrid_results) == 2
     assert hybrid_results[0]["retrieval_method"] == "hybrid"
+
+def test_extract_identifiers_from_query():
+    q1 = "Does Article 21 protect informational privacy?"
+    idents1 = extract_identifiers_from_query(q1)
+    assert idents1.get("article") == "21"
+
+    q2 = "Is Section 138 NI Act offence bailable?"
+    idents2 = extract_identifiers_from_query(q2)
+    assert idents2.get("section") == "138"
+
+    q3 = "Regulation 3 of SEBI PIT rules."
+    idents3 = extract_identifiers_from_query(q3)
+    assert idents3.get("regulation") == "3"
+
+def test_identifier_boosting():
+    collection = "statutes"
+    uuid_a = str(uuid.uuid5(uuid.NAMESPACE_DNS, "ni_138"))
+    uuid_b = str(uuid.uuid5(uuid.NAMESPACE_DNS, "ni_other"))
+    
+    chunks = [
+        {
+            "id": uuid_a,
+            "text": "Negotiable Instruments Act Section 138 cheque bounce.",
+            "metadata": {"doc_type": "central_act", "section": "138", "filename": "ni_138.txt"}
+        },
+        {
+            "id": uuid_b,
+            "text": "Other provisions of NI Act.",
+            "metadata": {"doc_type": "central_act", "section": "139", "filename": "ni_other.txt"}
+        }
+    ]
+    retriever.index_chunks(collection, chunks)
+    
+    # Search with exact section in query: should boost and return Section 138 first
+    results = retriever.search_hybrid(collection, "cheque bounce under Section 138", limit=1)
+    assert len(results) > 0
+    assert results[0]["id"] == uuid_a

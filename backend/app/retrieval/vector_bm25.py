@@ -1,4 +1,5 @@
 import uuid
+import re
 import logging
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
@@ -9,9 +10,34 @@ from backend.app.core.llm import generate_embeddings
 
 logger = logging.getLogger(__name__)
 
+def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
+    """Helper to extract exact legal identifiers from a natural language query for query boosting."""
+    identifiers = {}
+    
+    # Articles (e.g. Article 21, Art. 21)
+    art_match = re.search(r'\b(?:Article|Art\.)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    if art_match:
+        identifiers["article"] = art_match.group(1)
+        
+    # Sections (e.g. Section 138, Section 420)
+    sec_match = re.search(r'\b(?:Section|Sec\.|§)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    if sec_match:
+        identifiers["section"] = sec_match.group(1)
+        
+    # Regulations (e.g. Regulation 3, Reg 4)
+    reg_match = re.search(r'\b(?:Regulation|Reg\.|Reg)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    if reg_match:
+        identifiers["regulation"] = reg_match.group(1)
+
+    # Rules (e.g. Rule 4)
+    rule_match = re.search(r'\b(?:Rule)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    if rule_match:
+        identifiers["rule"] = rule_match.group(1)
+        
+    return identifiers
+
 class HybridRetriever:
     def __init__(self, storage_path: str = settings.QDRANT_STORAGE_PATH):
-        # Local storage path-based client avoids running a docker container
         self.client = QdrantClient(path=storage_path)
 
     def init_collection(self, collection_name: str, vector_size: int = 1536):
@@ -37,7 +63,7 @@ class HybridRetriever:
         Embed and index document chunks.
         Each chunk is a dict:
         {
-           "id": str, # optional, generated if missing
+           "id": str,
            "text": str,
            "metadata": dict
         }
@@ -54,7 +80,6 @@ class HybridRetriever:
             chunk_id = chunk.get("id") or str(uuid.uuid4())
             metadata = chunk.get("metadata") or {}
             
-            # Store the text inside payload for retrieval
             payload = {
                 "text": chunk["text"],
                 "metadata": metadata
@@ -62,9 +87,9 @@ class HybridRetriever:
             
             points.append(
                 PointStruct(
-                    id=chunk_id,
-                    vector=embeddings[i],
-                    payload=payload
+                     id=chunk_id,
+                     vector=embeddings[i],
+                     payload=payload
                 )
             )
 
@@ -81,12 +106,13 @@ class HybridRetriever:
         
         conditions = []
         for key, val in metadata_filter.items():
-            conditions.append(
-                FieldCondition(
-                    key=f"metadata.{key}",
-                    match=MatchValue(value=val)
+            if val is not None:
+                conditions.append(
+                    FieldCondition(
+                        key=f"metadata.{key}",
+                        match=MatchValue(value=val)
+                    )
                 )
-            )
         
         if conditions:
             return Filter(must=conditions)
@@ -127,11 +153,10 @@ class HybridRetriever:
         self.init_collection(collection_name)
         q_filter = self._get_qdrant_filter(metadata_filter)
         
-        # Scroll through all points in collection
         scroll_results, _ = self.client.scroll(
             collection_name=collection_name,
             scroll_filter=q_filter,
-            limit=10000, # Large limit since sample collections are small
+            limit=10000,
             with_payload=True,
             with_vectors=False
         )
@@ -157,7 +182,6 @@ class HybridRetriever:
         if not chunks:
             return []
 
-        # Simple whitespace/punctuation-based tokenization
         def tokenize(text: str) -> List[str]:
             return text.lower().replace(".", " ").replace(",", " ").replace(";", " ").replace(":", " ").split()
 
@@ -167,10 +191,8 @@ class HybridRetriever:
         tokenized_query = tokenize(query)
         scores = bm25.get_scores(tokenized_query)
         
-        # Zip, sort, and slice
         scored_chunks = []
         for i, chunk in enumerate(chunks):
-            # Normalize BM25 score to [0, 1] rough range for presentation
             raw_score = float(scores[i])
             scored_chunks.append({
                 **chunk,
@@ -190,9 +212,8 @@ class HybridRetriever:
     ) -> List[Dict[str, Any]]:
         """
         Hybrid search combining dense Vector search and sparse BM25 search
-        using Reciprocal Rank Fusion (RRF).
+        using Reciprocal Rank Fusion (RRF) with exact identifier boosting.
         """
-        # Fetch more candidates from each search to improve RRF quality
         candidate_limit = limit * 2
         
         vector_res = self.search_vector(collection_name, query, limit=candidate_limit, metadata_filter=metadata_filter)
@@ -219,14 +240,25 @@ class HybridRetriever:
             doc_map[doc_id] = doc
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 1.0 / (rank + rrf_k)
 
+        # Exact identifier boosting
+        query_idents = extract_identifiers_from_query(query)
+        if query_idents:
+            for doc_id, doc in doc_map.items():
+                doc_meta = doc.get("metadata", {})
+                boost = 0.0
+                for field, val in query_idents.items():
+                    if doc_meta.get(field) == val:
+                        # Match found! Boost the score
+                        boost += 0.5
+                if boost > 0.0:
+                    rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + boost
+
         # Sort documents based on RRF scores
         sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
         
-        # Build final outputs
         hybrid_results = []
         for rank, doc_id in enumerate(sorted_ids[:limit]):
             doc = doc_map[doc_id]
-            # Standardize score to show RRF metric
             doc["score"] = float(rrf_scores[doc_id])
             doc["retrieval_method"] = "hybrid"
             hybrid_results.append(doc)
