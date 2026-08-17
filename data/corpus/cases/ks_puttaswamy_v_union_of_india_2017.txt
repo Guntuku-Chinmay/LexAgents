@@ -1,0 +1,11 @@
+K.S. PUTTASWAMY V. UNION OF INDIA
+Supreme Court of India, 2017
+
+In K.S. Puttaswamy v. Union of India (2017), a nine-judge bench of the Supreme Court of India unanimously held that the Right to Privacy is a fundamental right guaranteed under Article 21, Article 14, and Article 19 of the Constitution of India. 
+
+The Court ruled that privacy is an essential ingredient of personal liberty and dignity. However, like other fundamental rights, the right to privacy is not absolute and is subject to reasonable restrictions. Any state action encroaching upon privacy must satisfy a threefold test:
+1. Legality: The action must be backed by a clear legislative law.
+2. Need / Legitimate Goal: The action must serve a legitimate state aim or public interest.
+3. Proportionality: The measure adopted must be proportionate to the objective sought to be achieved, ensuring there is a rational nexus and no less intrusive means are available.
+
+The Court further held that informational privacy is an integral facet of the right to privacy, and the state must establish a robust data protection framework to safeguard personal digital data against unauthorized surveillance or commercial exploitation. The ruling applies primarily to state actions, but its principles also horizontalize to define the limits of private corporate contracts concerning personal messaging and biometric tracking of individuals.

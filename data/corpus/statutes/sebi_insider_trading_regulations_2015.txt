@@ -1,0 +1,12 @@
+SECURITIES AND EXCHANGE BOARD OF INDIA (PROHIBITION OF INSIDER TRADING) REGULATIONS, 2015
+
+Regulation 3. Communication or procurement of unpublished price sensitive information (UPSI):
+(1) No insider shall communicate, provide, or allow access to any unpublished price sensitive information, relating to a company or securities listed or proposed to be listed, to any person including other insiders except where such communication is in furtherance of legitimate purposes, performance of duties or discharge of legal obligations.
+(2) No person shall procure from or cause the communication by any insider of unpublished price sensitive information, relating to a company or securities listed or proposed to be listed, except in furtherance of legitimate purposes, performance of duties or discharge of legal obligations.
+
+Regulation 4. Trading when in possession of unpublished price sensitive information:
+(1) No insider shall trade in securities that are listed or proposed to be listed on a stock exchange when in possession of unpublished price sensitive information:
+Provided that the insider may prove his innocence by demonstrating the circumstances, including that the transaction was carried out pursuant to a trading plan set up in accordance with Regulation 5.
+(2) In the case of non-individual insiders, the individuals who were in possession of such unpublished price sensitive information were different from the individuals taking trading decisions and that appropriate Chinese walls were in place.
+
+Explanation.—"Unpublished price sensitive information" (UPSI) means any information, relating to a company or its securities, directly or indirectly, that is not generally available which upon becoming generally available, is likely to materially affect the price of the securities and shall, ordinarily including but not restricted to, information relating to financial results, dividends, change in capital structure, mergers, de-mergers, acquisitions, delistings, disposals and expansion of business, and changes in key managerial personnel.

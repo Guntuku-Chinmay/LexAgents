@@ -1,14 +1,14 @@
-RESIDENTIAL LEASE AGREEMENT
+INDIAN COMMERCIAL LEASE AGREEMENT
 
-This lease agreement is entered into on January 1, 2025, between LANDLORD: Charles Smith, and TENANT: Jane Doe, for the property located at 456 Oak Street, Los Angeles, CA 90025.
+This Lease Agreement is made on January 1, 2026, at New Delhi, India, between LANDLORD: Rajesh Kumar, and TENANT: Amit Verma, for the commercial premises located at 12 Barakhamba Road, Connaught Place, New Delhi 110001.
 
-TERMS:
-1. Rent: Tenant agrees to pay monthly rent of $3,000, due on the 1st of each calendar month.
-2. Security Deposit: Tenant shall deposit the sum of $2,500 with the Landlord as security for any damage caused to the premises during the term of this lease.
-3. Return of Deposit: Upon termination of this lease, the Landlord shall inspect the premises and return the security deposit. Under Section 10 of this agreement, the Landlord may deduct unpaid rent, cleaning costs, and costs for repairs exceeding normal wear and tear.
-4. Timeline for Refund: The Landlord agrees to return the remaining security deposit and/or provide an itemized list of deductions to the Tenant within 30 days of the Tenant vacating the premises.
-5. Dispute Resolution: Any dispute arising out of this agreement shall be submitted to mediation prior to filing any legal action.
+TERMS & COVENANTS:
 
-Signed,
-Landlord: Charles Smith
-Tenant: Jane Doe
+Section 1. Payment Mode:
+The Tenant shall pay a monthly rent of INR 1,50,000, due on the 1st of each calendar month. The payment shall be made exclusively via post-dated cheques drawn on the Tenant's bank account. Under Section 10 of this agreement, the Landlord shall present the cheque on the due date. If any cheque is returned unpaid due to insufficient funds, the Tenant shall immediately pay the amount, and any delay beyond 30 days of notice shall entitle the Landlord to initiate immediate eviction proceedings.
+
+Section 2. Surveillance & Privacy Waiver:
+The Landlord retains the right to install digital CCTV cameras and network sniffers inside the private workspace of the premises to monitor all communications and data packets of the Tenant's staff. The Tenant hereby waives all rights to personal digital privacy, including any protections claimed under Article 21 of the Constitution of India or Puttaswamy judgment guidelines, and consents to constant monitoring of messages.
+
+Section 3. Dispute Resolution:
+All disputes arising out of this agreement shall be referred to arbitration in accordance with the Indian Arbitration and Conciliation Act, 1996. The place of arbitration shall be New Delhi, and proceedings shall be in English.

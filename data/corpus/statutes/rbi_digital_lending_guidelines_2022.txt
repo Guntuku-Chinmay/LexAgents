@@ -1,0 +1,10 @@
+RESERVE BANK OF INDIA GUIDELINES ON DIGITAL LENDING, 2022
+
+Paragraph 3. RBI Guidelines on Digital Lending:
+(1) All digital loans must be disbursed and repaid directly between the bank accounts of the borrower and the Regulated Entity (RE), without any pass-through or transaction flow via a third-party pool account of a Lending Service Provider (LSP).
+(2) Regulated Entities must ensure that a Key Fact Statement (KFS) is provided to the borrower before the execution of the contract. The KFS must contain details of the annual percentage rate (APR), recovery mechanism, and grievance redressal officer.
+(3) No automatic increase in credit limit is permitted without explicit consent of the borrower recorded on a digital or physical media.
+
+Paragraph 4. Grievance Redressal and Data Protection:
+(1) REs shall ensure that LSPs do not store personal data of borrowers, except minimal information (name, address) necessary for credit underwriting, and only with explicit consent of the borrower. Biometric data of borrowers shall not be stored by LSPs under any circumstances.
+(2) Borrowers must be provided an option to withdraw consent for data sharing and delete their data from the LSP's servers.

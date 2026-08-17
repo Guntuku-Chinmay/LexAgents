@@ -24,7 +24,7 @@ def bootstrap():
     cases_dir = "data/corpus/cases"
     if os.path.exists(cases_dir):
         logger.info(f"Ingesting cases from {cases_dir}...")
-        count = ingest_directory(cases_dir, doc_type_override="case")
+        count = ingest_directory(cases_dir, doc_type_override=None)
         logger.info(f"Ingested {count} case chunks.")
     else:
         logger.error(f"Cases directory not found: {cases_dir}")
@@ -33,7 +33,7 @@ def bootstrap():
     statutes_dir = "data/corpus/statutes"
     if os.path.exists(statutes_dir):
         logger.info(f"Ingesting statutes from {statutes_dir}...")
-        count = ingest_directory(statutes_dir, doc_type_override="statute")
+        count = ingest_directory(statutes_dir, doc_type_override=None)
         logger.info(f"Ingested {count} statute chunks.")
     else:
         logger.error(f"Statutes directory not found: {statutes_dir}")

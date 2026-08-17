@@ -1,0 +1,8 @@
+DALMIA CEMENT (BHARAT) LTD. V. GALAXY TRADERS & AGENCIES LTD.
+Supreme Court of India, 2001
+
+In Dalmia Cement (Bharat) Ltd. v. Galaxy Traders & Agencies Ltd. (2001), the Supreme Court of India examined the legislative intent behind Section 138 of the Negotiable Instruments Act, 1881. The Court held that the provision was incorporated to promote and facilitate efficacy in banking operations and ensure credibility in commercial transactions using cheques.
+
+The Court clarified that the thirty-day notice period for demanding cheque payment, as provided in Clause (b) of the Proviso to Section 138, is mandatory and must be strictly complied with. If the payee fails to send the written notice of dishonour to the drawer within 30 days of receiving the memo return from the bank, the cause of action is extinguished, and no prosecution can be maintained.
+
+However, the Court also held that where a cheque is dishonoured multiple times, the payee can issue a notice on any subsequent dishonour within the validity of the cheque, provided no notice had been issued on the previous dishonour. Once a valid statutory notice is sent and the fifteen-day payment period expires, the cause of action crystallizes, and a fresh presentation of the cheque cannot create a new cause of action.

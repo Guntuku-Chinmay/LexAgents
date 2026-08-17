@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 def get_collection_for_doc_type(doc_type: str) -> str:
     """Map document type to Qdrant collection name."""
-    if doc_type == "case":
+    if doc_type in ["case", "sc_judgment", "hc_judgment"]:
         return "cases"
-    elif doc_type == "statute":
+    elif doc_type in ["statute", "constitutional", "constitutional_amendment", "central_act", "state_act", "rules", "regulation", "government_notification", "government_order", "government_circular"]:
         return "statutes"
     else:
         return "legal_documents"
