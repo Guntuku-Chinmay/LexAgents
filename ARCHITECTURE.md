@@ -39,8 +39,8 @@ The application status and trace history are stored in PostgreSQL using SQLAlche
 - **`documents`**: Metadata records for imported court cases, legislation codes, and tenant files.
 - **`sources`**: Individual source text segments matching vector chunks.
 - **`claims`**: Specific claims extracted for verification.
-- **`verification_results`**: Verification matrices (supported, confidence, issues/contradictions list).
-- **`claim_source_links`**: Relational junction connecting claims to cited sources.
+- **`verification_results`**: Verification matrices including `verification_status` (supported, partially supported, unsupported, contradicted, insufficient) and `importance` (high, medium, low).
+- **`claim_source_links`**: Relational junction connecting claims to cited sources including the `relationship` graph link (supports, contradicts, insufficient, context only).
 - **`reflection_cycles`**: logs of reasoning and sufficiency checks of the loop runner.
 - **`evaluations` / `evaluation_results`**: Macro performance metrics captured over benchmark scenarios.
 
@@ -48,7 +48,7 @@ The application status and trace history are stored in PostgreSQL using SQLAlche
 
 ---
 
-## 3. Hybrid Dense/Sparse Retrieval
+## 3. Hybrid Dense/Sparse Retrieval with Legal Identifier Boosting
 
 LexAgents maintains Qdrant indices for cases, statutes, and uploaded leases:
 - **Dense Vector Search**: Generates embedding tokens and searches Qdrant collections.
@@ -58,13 +58,20 @@ LexAgents maintains Qdrant indices for cases, statutes, and uploaded leases:
   $$RRF\_Score(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
   
   And returns the top fused results as citations.
+- **Legal Identifier Boosting**: The retriever uses regex matchers to extract legal identifiers (e.g. Articles, Sections, Regulations, Rules) from both raw text chunks and incoming queries. If a query matches an identifier parsed from a document's metadata, its RRF score is dynamically boosted by +0.5 points to ensure high-authority statutory matches bubble to the top.
 
 ---
 
 ## 4. Multi-Agent Orchestration & Claim Verification
 
 1. **Coordinator**: Parses the input legal query and schedules specialized retrieval tasks.
-2. **Specialized Search Agents**: target designated Qdrant collections.
+2. **Specialized Search Agents**:
+   - **Constitutional Research Agent**: Dedicated to querying Articles, constitutional amendments, and fundamental rights.
+   - **Regulatory Agent**: Dedicated to corporate regulations, guidelines, circulars, and notifications (e.g., SEBI PIT, RBI digital lending guidelines).
+   - **Statute Agent**: Handles central/state legislative acts.
+   - **Case Law Agent**: Handles judicial precedents.
+   - **Legal Document Agent**: Inspects uploaded user contracts/leases.
+   - **Web Research Agent**: Queries external sources.
 3. **Synthesis Agent**: formats findings and inserts bracketed numbers linking assertions to citations.
-4. **Verification Agent**: extracts assertions, resolves citations, verifies correctness against original source excerpts, and flags contradictions.
+4. **Verification Agent**: extracts assertions, resolves citations, verifies correctness against original source excerpts, and categorizes verification status and priority.
 5. **Reflection Agent**: runs evaluation checks. If citations are incomplete or contradictory, it restarts the search loop with refined tasks.

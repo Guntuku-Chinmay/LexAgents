@@ -47,8 +47,29 @@ This version features a modernized full-stack architecture with a **Next.js Reac
                          │ Synthesis                │
                          │ Verification             │
                          │ Reflection               │
-                         └──────────────────────────┘
+                         └────────────┴─────────────┘
 ```
+
+## 2.1 Indian Legal Research Scope & Enhancements
+
+LexAgents has been optimized for **Indian Constitutional, Statutory, and Corporate/Regulatory research**. Key upgrades include:
+
+1. **Upgraded Legal Taxonomy & Metadata**: 
+   - Supports precise categories: `constitutional`, `constitutional_amendment`, `central_act`, `state_act`, `sc_judgment`, `hc_judgment`, `regulation`, `government_circular`, `rules`, and `user_upload`.
+   - Automatic metadata parsing extracts specific identifiers (Articles, Sections, Rules, Regulations) and dates directly from raw legal texts.
+   - Assigned legal authority levels (`TIER 1` to `TIER 4`) prioritize constitutional materials over lower-level notifications.
+
+2. **Specialized Agent Routing**:
+   - **Constitutional Research Agent**: Dedicated to querying and extracting Articles, amendments, and fundamental rights.
+   - **Regulatory Agent**: Targets regulatory notifications, circulars, and guidelines (e.g., SEBI PIT regulations, RBI digital lending guidelines).
+
+3. **Boosting and Filter Enhancements**:
+   - Hybrid retriever automatically parses legal identifiers (e.g. "Section 138", "Article 21") from natural language queries and dynamically boosts corresponding matches during Reciprocal Rank Fusion (RRF) by +0.5 points.
+
+4. **Multi-Valued Claims & Citation Graph**:
+   - Verification agent maps claims into multi-valued classifications (`supported`, `partially_supported`, `contradicted`, `unsupported`, `insufficient_evidence`).
+   - Stores fine-grained claim-evidence graph link relationships (`supports`, `contradicts`, `insufficient`, `context_only`) in SQL database.
+   - Smart deduplication merges overlapping chunks, preserving the highest retrieval score while aggregating all retrieval methods.
 
 ---
 
