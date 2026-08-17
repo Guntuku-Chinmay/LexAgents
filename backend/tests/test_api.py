@@ -80,6 +80,25 @@ def test_get_observability_api(client):
     db.add_log(session_id, "Decomposition (Iteration 1)", "trace", {
         "tasks": [{"query": "subtask 1", "agent": "statute", "reason": "reason 1"}]
     })
+    db.add_log(session_id, "Verification (Iteration 1)", "trace", {
+        "verification_results": [
+            {
+                "claim": "Test claim text",
+                "supported": True,
+                "confidence": 0.95,
+                "issues": [],
+                "importance": "high",
+                "verification_status": "supported",
+                "evidence_links": [
+                    {
+                        "evidence_index": 1,
+                        "evidence_id": "ev_id_1",
+                        "relationship": "supports"
+                    }
+                ]
+            }
+        ]
+    })
     
     response = client.get(f"/api/sessions/{session_id}/observability")
     assert response.status_code == 200
@@ -88,3 +107,9 @@ def test_get_observability_api(client):
     assert "observability" in data
     assert len(data["observability"]["tasks"]) > 0
     assert data["observability"]["tasks"][0]["agent_name"] == "statute"
+    
+    assert len(data["observability"]["verifications"]) > 0
+    assert data["observability"]["verifications"][0]["verification_status"] == "supported"
+    assert data["observability"]["verifications"][0]["importance"] == "high"
+    assert len(data["observability"]["verifications"][0]["evidence_links"]) > 0
+    assert data["observability"]["verifications"][0]["evidence_links"][0]["relationship"] == "supports"
