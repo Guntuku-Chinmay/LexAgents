@@ -14,11 +14,11 @@ def test_conduct_research_api(client):
     
     # Seed mock data
     retriever.index_chunks("statutes", [
-        {"id": uuid_s, "text": "California Code § 1950.5 timeline is 21 days.", "metadata": {"doc_type": "statute", "filename": "statute1.txt"}}
+        {"id": uuid_s, "text": "Section 138 of Negotiable Instruments Act notice timeline is 30 days.", "metadata": {"doc_type": "central_act", "filename": "statute1.txt"}}
     ])
     
     payload = {
-        "query": "Is California lease clause of 30 days return legal?",
+        "query": "Does the cheque notice clause in the lease agreement allowing 60 days comply with Indian law?",
         "use_web": False
     }
     response = client.post("/api/research", json=payload)
@@ -31,15 +31,15 @@ def test_conduct_research_api(client):
     assert "verification_results" in data
 
 def test_document_upload_api(client):
-    file_content = b"Section 5. Cleaning Fees. Landlord may deduct $150 cleaning fee automatically upon move out."
-    file_data = {"file": ("lease_clause_cleaning.txt", io.BytesIO(file_content), "text/plain")}
+    file_content = b"Section 5. Cheque bounce notice period. Any unpaid rent cheque delay beyond 60 days entitles Rajesh Kumar to evict."
+    file_data = {"file": ("lease_clause_eviction.txt", io.BytesIO(file_content), "text/plain")}
     
     response = client.post("/api/documents/upload", files=file_data)
     assert response.status_code == 200
     
     data = response.json()
     assert data["status"] == "success"
-    assert data["filename"] == "lease_clause_cleaning.txt"
+    assert data["filename"] == "lease_clause_eviction.txt"
     assert data["chunks_ingested"] == 1
 
 def test_get_source_api(client):

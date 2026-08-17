@@ -56,8 +56,8 @@ def test_regulatory_agent():
 
 def test_synthesis_agent():
     evidence = [
-        Evidence(id="ev1", text="Civil Code § 1950.5 requires landlord return deposit in 21 days.", source="Statute Title 11", doc_type="statute", score=0.9),
-        Evidence(id="ev2", text="Granberry case held failure to return in 21 days forfeits right to retain.", source="Granberry v Covas", doc_type="case", score=0.8)
+        Evidence(id="ev1", text="Section 138 of Negotiable Instruments Act requires cheque notice in 30 days.", source="NI Act Section 138", doc_type="central_act", score=0.9),
+        Evidence(id="ev2", text="Dalmia Cement case held notice period under Section 138 is mandatory.", source="Dalmia Cement v Galaxy", doc_type="sc_judgment", score=0.8)
     ]
     
     res = synthesis_agent.synthesize("What is the refund timeline?", evidence)
@@ -66,11 +66,11 @@ def test_synthesis_agent():
 
 def test_verification_agent():
     evidence = [
-        Evidence(id="ev1", text="Civil Code § 1950.5 requires landlord return deposit in 21 days.", source="Statute Title 11", doc_type="statute", score=0.9)
+        Evidence(id="ev1", text="Section 138 of Negotiable Instruments Act requires cheque notice in 30 days.", source="NI Act Section 138", doc_type="central_act", score=0.9)
     ]
     
     # Text with citation
-    answer = "A landlord must return the security deposit in 21 days [1]."
+    answer = "A cheque notice must be issued within 30 days under Section 138 [1]."
     results = verification_agent.verify(answer, evidence)
     
     assert len(results) > 0
@@ -181,13 +181,13 @@ def test_orchestrator_end_to_end_loop():
     
     # Seed mock data
     retriever.index_chunks("statutes", [
-        {"id": uuid_s, "text": "California Code § 1950.5 timeline is 21 days.", "metadata": {"doc_type": "statute", "filename": "statute1.txt"}}
+        {"id": uuid_s, "text": "Section 138 of Negotiable Instruments Act notice timeline is 30 days.", "metadata": {"doc_type": "central_act", "filename": "statute1.txt"}}
     ])
     retriever.index_chunks("cases", [
-        {"id": uuid_c, "text": "Granberry holds 21-day timeline forfeiture.", "metadata": {"doc_type": "case", "filename": "case1.txt"}}
+        {"id": uuid_c, "text": "Dalmia Cement holds 30-day notice is mandatory.", "metadata": {"doc_type": "sc_judgment", "filename": "case1.txt"}}
     ])
 
-    response = orchestrator.run_research("What is the security deposit return timeline in California?", max_iterations=2)
+    response = orchestrator.run_research("What is the cheque bounce notice timeline in India?", max_iterations=2)
     
     assert response.session_id is not None
     assert response.answer != ""
@@ -233,7 +233,7 @@ def test_orchestrator_reflection_recovery_loop():
     # Let's register mock responses dynamically to simulate the two-cycle loop
     # Iteration 2 overrides (highest priority)
     set_mock_response(
-        "synthesis: negotiable instruments act",
+        "synthesis: Act, 1881",
         {
             "answer": "No, the 60-day clause is invalid because Section 138 of the Negotiable Instruments Act mandates notice within 30 days [2].",
             "conflicts": ["Contract clause contradicts Section 138 NI Act"]

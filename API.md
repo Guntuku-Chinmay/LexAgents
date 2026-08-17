@@ -12,7 +12,7 @@ Executes the collaborative multi-agent RAG workflow.
 - **Request Body (`QueryRequest`)**:
   ```json
   {
-    "query": "If a landlord fails to return the security deposit in 21 days but claims the lease contract permits 30 days, is it enforceable?",
+    "query": "Does the cheque notice clause in the lease agreement allowing 60 days comply with Section 138 of the Negotiable Instruments Act?",
     "session_id": "optional-uuid-here",
     "use_web": true
   }
@@ -26,7 +26,7 @@ Executes the collaborative multi-agent RAG workflow.
       {
         "id": "uuid-here",
         "text": "Statute or case passage text",
-        "source": "California Civil Code Section 1950.5",
+        "source": "Negotiable Instruments Act, 1881",
         "doc_type": "statute",
         "score": 0.95,
         "metadata": {}
@@ -76,7 +76,7 @@ Force indexes a local file path.
 - **Request Body**:
   ```json
   {
-    "filepath": "E:/Projects/LexAgents/data/corpus/cases/granberry_v_covas_1999.txt",
+    "filepath": "E:/Projects/LexAgents/data/corpus/cases/dalmia_cement_v_galaxy_traders_2001.txt",
     "doc_type": "case",
     "collection_name": "cases"
   }
@@ -101,7 +101,7 @@ Retrieve details and text content for a specific indexed chunk ID.
   {
     "id": "uuid-here",
     "text": "Raw chunk passage text",
-    "source": "california_civil_code_section_1950_5.txt",
+    "source": "negotiable_instruments_act_1881.txt",
     "doc_type": "statute",
     "score": 1.0,
     "metadata": {}

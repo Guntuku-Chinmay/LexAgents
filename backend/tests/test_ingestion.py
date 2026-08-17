@@ -11,13 +11,13 @@ def test_chunk_text():
     assert all("text" in c and "id" in c for c in chunks)
 
 def test_extract_metadata_from_filename():
-    meta_case = extract_metadata_from_filename("brown_v_board_of_education_supreme_court_1954.txt")
+    meta_case = extract_metadata_from_filename("dalmia_cement_v_galaxy_traders_2001.txt")
     assert meta_case["doc_type"] == "sc_judgment"
     assert "Supreme Court" in meta_case["court"]
-    assert meta_case["judgment_date"] == "1954-01-01"
-    assert "brown v. board of education" in meta_case["case_name"].lower()
+    assert meta_case["judgment_date"] == "2001-01-01"
+    assert "dalmia cement v. galaxy traders" in meta_case["case_name"].lower()
 
-    meta_statute = extract_metadata_from_filename("california_civil_code_section_1950_5.txt")
+    meta_statute = extract_metadata_from_filename("negotiable_instruments_act_1881.txt")
     assert meta_statute["doc_type"] == "central_act"
     
     meta_custom = extract_metadata_from_filename("my_private_lease.txt")
@@ -28,7 +28,7 @@ def test_ingest_file(tmp_path):
     test_file = tmp_path / "mock_statute_code_title_10.txt"
     test_file.write_text("Section 101. This represents some statutory law provision content text.\n\nSection 102. Another provision item.")
     
-    chunks_count = ingest_file(str(test_file), metadata_override={"jurisdiction": "California"}, collection_name="test_statutes")
+    chunks_count = ingest_file(str(test_file), metadata_override={"jurisdiction": "India"}, collection_name="test_statutes")
     assert chunks_count > 0
     
     # Verify metadata saved in SQLite
@@ -36,9 +36,9 @@ def test_ingest_file(tmp_path):
     assert len(documents) == 1
     assert documents[0]["filename"] == "mock_statute_code_title_10.txt"
     assert documents[0]["doc_type"] == "central_act"
-    assert documents[0]["metadata"]["jurisdiction"] == "California"
+    assert documents[0]["metadata"]["jurisdiction"] == "India"
 
     # Verify indexed in Qdrant collection
     scroll_res, _ = retriever.client.scroll(collection_name="test_statutes")
     assert len(scroll_res) == chunks_count
-    assert scroll_res[0].payload["metadata"]["jurisdiction"] == "California"
+    assert scroll_res[0].payload["metadata"]["jurisdiction"] == "India"

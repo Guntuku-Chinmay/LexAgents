@@ -16,9 +16,9 @@ interface ResearchWorkspaceProps {
 }
 
 const SAMPLE_QUERIES = [
-  "If a landlord in California fails to provide an itemized security deposit deduction list within 21 days, does he lose the right to make deductions for damages, and can he still sue the tenant?",
-  "Is a tenant entitled to double statutory damages automatically if the landlord makes excessive deductions from a security deposit under California law?",
-  "In the provided lease agreement for 456 Oak Street, the landlord claims they have 30 days to return the security deposit. Is this clause legally enforceable under California law?",
+  "Does the right to privacy under Article 21 of the Indian Constitution extend to digital data protection, and what legal test must state surveillance satisfy to comply with it?",
+  "Under Regulation 3 and 4 of SEBI (Prohibition of Insider Trading) Regulations 2015, what constitutes Unpublished Price Sensitive Information (UPSI), and can communications be made to joint venture partners during due diligence?",
+  "In the provided lease agreement, the landlord Rajesh Kumar has a clause saying he can issue a cheque bounce notice within 60 days of dishonour. Does this comply with Section 138 of the Negotiable Instruments Act?",
 ];
 
 export default function ResearchWorkspace({
@@ -51,7 +51,10 @@ export default function ResearchWorkspace({
     setInputQuery(q);
   };
 
-  const formatAnswerText = (text: string) => {
+  const renderAnswerText = (text: string) => {
+    if (!text) return null;
+    
+    // Convert inline citations like [1] to clickable buttons
     const regex = /\[(\d+)\]/g;
     const parts = [];
     let lastIndex = 0;
@@ -59,22 +62,21 @@ export default function ResearchWorkspace({
 
     while ((match = regex.exec(text)) !== null) {
       const matchIndex = match.index;
-      const citationIndex = parseInt(match[1], 10);
+      const citationNumber = match[1];
+      const citationIdx = parseInt(citationNumber, 10) - 1;
 
       if (matchIndex > lastIndex) {
         parts.push(text.substring(lastIndex, matchIndex));
       }
 
-      const evidenceItem = citations[citationIndex - 1];
-      if (evidenceItem) {
+      if (citations[citationIdx]) {
         parts.push(
           <button
-            key={`cit-${matchIndex}`}
-            onClick={() => onSelectCitation(evidenceItem.id)}
-            className="mx-0.5 px-1.5 py-0.5 text-xs font-mono font-bold bg-teal-950/60 hover:bg-teal-900 border border-teal-800 text-teal-300 rounded hover:scale-105 transition-all cursor-pointer"
-            title={evidenceItem.source}
+            key={matchIndex}
+            onClick={() => onSelectCitation(citations[citationIdx].id)}
+            className="inline-flex items-center px-1.5 py-0.2 mx-0.5 text-[10px] font-bold bg-teal-950 border border-teal-800 text-teal-300 hover:bg-teal-900 rounded font-mono cursor-pointer transition-colors align-middle"
           >
-            [{citationIndex}]
+            {citationNumber}
           </button>
         );
       } else {
@@ -100,7 +102,7 @@ export default function ResearchWorkspace({
             <textarea
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
-              placeholder="Ask a legal query (e.g. California Civil Code Section 1950.5 timelines, landlord deduction rights, lease conflicts)..."
+              placeholder="Ask a legal query (e.g. Article 21 privacy rights, SEBI insider trading UPSI rules, Section 138 cheque bounce timelines)..."
               disabled={isResearching}
               rows={3}
               className="w-full bg-[#090d16] border border-gray-800 rounded-lg py-3 pl-4 pr-12 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-teal-500 transition-colors resize-none"
@@ -183,7 +185,7 @@ export default function ResearchWorkspace({
           </div>
 
           <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap font-sans">
-            {formatAnswerText(answer)}
+            {renderAnswerText(answer)}
           </div>
         </div>
       )}

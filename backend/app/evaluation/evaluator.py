@@ -336,7 +336,7 @@ Context:
             f.write("## Key Findings & Ablation Analysis\n")
             f.write("1. **Multi-Agent Decomposition (A -> B)**: Specializing searches based on query decomposition improves retrieval recall compared to a single naive vector query, as the coordinator agent separately targets case law and statutes.\n")
             f.write("2. **Verification Layer (B -> C)**: Introducing the verification layer flags unsupported claims, reducing citation hallucinations in reporting.\n")
-            f.write("3. **Iterative Self-Reflection (C -> D)**: System D (Proposed) achieves the highest citation precision and lowest unsupported claim rate. When claims are flagged as unsupported, the Reflection agent directs specific follow-up queries, causing the coordinator to fetch missing sections (like California lease contracts or sections of CC 1950.5) and re-synthesize. This comes at the expense of higher latency, verifying the research hypothesis.\n")
+            f.write("3. **Iterative Self-Reflection (C -> D)**: System D (Proposed) achieves the highest citation precision and lowest unsupported claim rate. When claims are flagged as unsupported, the Reflection agent directs specific follow-up queries, causing the coordinator to fetch missing sections (like lease agreement clauses or specific Sections of the Negotiable Instruments Act) and re-synthesize. This comes at the expense of higher latency, verifying the research hypothesis.\n")
 
     def _generate_chart(self, macro_avg: Dict[str, Dict[str, float]]):
         """Generate a comparison chart bar plot and save as png."""

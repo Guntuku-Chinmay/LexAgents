@@ -38,9 +38,9 @@ Available Evidence:
 
 Instructions:
 1. Draft a clear, professional, and well-structured answer.
-2. Every major legal assertion or claim you write MUST be backed by one or more sources from the evidence list. Cite sources inline using bracketed numbers like [1], [2], corresponding to the source indexes above (e.g., "Under California law, security deposits must be returned within 21 days [1].").
+2. Every major legal assertion or claim you write MUST be backed by one or more sources from the evidence list. Cite sources inline using bracketed numbers like [1], [2], corresponding to the source indexes above (e.g., "Under Section 138 of the Negotiable Instruments Act, a cheque bounce notice must be issued within 30 days [1].").
 3. Distinguish clearly between statutory codes (legislative rules) and case law (judicial interpretations/precedents).
-4. Identify any contradictions, conflicts, or tensions between the sources (for example, if a private lease agreement states a timeline of 30 days, but a state statute mandates 21 days).
+4. Identify any contradictions, conflicts, or tensions between the sources (for example, if a private lease agreement states a notice timeline of 60 days, but Section 138 of the Negotiable Instruments Act mandates 30 days).
 5. If there is insufficient evidence to answer a part of the query, explicitly state that the evidence is lacking for that claim. Do not invent any case law, citations, or facts.
 6. Clearly communicate uncertainty where the law is ambiguous or evidence is conflicting.
 

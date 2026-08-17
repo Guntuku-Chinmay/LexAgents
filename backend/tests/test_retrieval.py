@@ -11,18 +11,18 @@ def test_hybrid_retrieval_and_filtering():
     chunks = [
         {
             "id": uuid1,
-            "text": "Landlord must refund security deposit within 21 days according to California civil rules.",
-            "metadata": {"doc_type": "case", "jurisdiction": "California", "filename": "case1.txt"}
+            "text": "Landlord must refund security deposit within 30 days under Delhi tenancy rules.",
+            "metadata": {"doc_type": "case", "jurisdiction": "Delhi", "filename": "case1.txt"}
         },
         {
             "id": uuid2,
-            "text": "In New York, landlord security deposits are regulated under general obligations law.",
-            "metadata": {"doc_type": "case", "jurisdiction": "New York", "filename": "case2.txt"}
+            "text": "In Maharashtra, leave and license deposits are regulated under Maharashtra Rent Control Act.",
+            "metadata": {"doc_type": "case", "jurisdiction": "Maharashtra", "filename": "case2.txt"}
         },
         {
             "id": uuid3,
-            "text": "The contract clause outlines a 30-day timeline for return of security money.",
-            "metadata": {"doc_type": "case", "jurisdiction": "California", "filename": "case3.txt"}
+            "text": "The contract clause outlines a 60-day timeline for return of security money.",
+            "metadata": {"doc_type": "case", "jurisdiction": "Delhi", "filename": "case3.txt"}
         }
     ]
     retriever.index_chunks(collection, chunks)
@@ -32,18 +32,18 @@ def test_hybrid_retrieval_and_filtering():
     assert len(vector_results) == 3
 
     # 3. Test metadata filtering
-    filtered_results = retriever.search_vector(collection, "security deposit", limit=3, metadata_filter={"jurisdiction": "New York"})
+    filtered_results = retriever.search_vector(collection, "security deposit", limit=3, metadata_filter={"jurisdiction": "Maharashtra"})
     assert len(filtered_results) == 1
-    assert filtered_results[0]["metadata"]["jurisdiction"] == "New York"
-    assert "New York" in filtered_results[0]["text"]
+    assert filtered_results[0]["metadata"]["jurisdiction"] == "Maharashtra"
+    assert "Maharashtra" in filtered_results[0]["text"]
 
     # 4. Test BM25 keyword search
-    bm25_results = retriever.search_bm25(collection, "New York", limit=1)
+    bm25_results = retriever.search_bm25(collection, "Maharashtra", limit=1)
     assert len(bm25_results) == 1
-    assert "New York" in bm25_results[0]["text"]
+    assert "Maharashtra" in bm25_results[0]["text"]
 
     # 5. Test hybrid search (RRF)
-    hybrid_results = retriever.search_hybrid(collection, "California rules", limit=2)
+    hybrid_results = retriever.search_hybrid(collection, "Delhi rules", limit=2)
     assert len(hybrid_results) == 2
     assert hybrid_results[0]["retrieval_method"] == "hybrid"
 

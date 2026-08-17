@@ -12,15 +12,15 @@ The evaluation runs against a dataset of structured queries. Each test item is f
 {
   "id": "q_unique_id",
   "question": "The complex legal question to answer",
-  "jurisdiction": "California",
+  "jurisdiction": "India",
   "expected_sources": [
-    "california_civil_code_section_1950_5.txt",
-    "granberry_v_covas_1999.txt"
+    "negotiable_instruments_act_1881.txt",
+    "dalmia_cement_v_galaxy_traders_2001.txt"
   ],
   "reference_answer": "The ground-truth answer detailing expected statutory and case linkages.",
-  "relevant_documents": ["california_civil_code_section_1950_5.txt", "granberry_v_covas_1999.txt"],
+  "relevant_documents": ["negotiable_instruments_act_1881.txt", "dalmia_cement_v_galaxy_traders_2001.txt"],
   "metadata": {
-    "topic": "security deposit forfeiture",
+    "topic": "cheque bounce notice compliance",
     "complexity": "medium"
   }
 }
