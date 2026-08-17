@@ -15,6 +15,8 @@ from backend.app.database.db_manager import db
 from backend.app.retrieval.vector_bm25 import retriever
 from backend.app.models.schemas import Evidence, VerificationResult
 from backend.app.agents.coordinator import coordinator_agent
+from backend.app.agents.constitutional import constitutional_research_agent
+from backend.app.agents.regulatory import regulatory_agent
 from backend.app.agents.case_law import case_law_agent
 from backend.app.agents.statute import statute_agent
 from backend.app.agents.legal_document import legal_document_agent
@@ -102,7 +104,11 @@ Context:
 
         for task in coordinator_out.tasks:
             results = []
-            if task.agent == "case_law":
+            if task.agent == "constitutional":
+                results = constitutional_research_agent.search(task.query, limit=3)
+            elif task.agent == "regulatory":
+                results = regulatory_agent.search(task.query, limit=3)
+            elif task.agent == "case_law":
                 results = case_law_agent.search(task.query, limit=3)
             elif task.agent == "statute":
                 results = statute_agent.search(task.query, limit=3)

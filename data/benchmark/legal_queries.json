@@ -1,47 +1,46 @@
 [
   {
     "id": "q_01",
-    "question": "If a landlord in California fails to provide an itemized security deposit deduction list within 21 days, does he lose the right to make deductions for damages, and can he still sue the tenant?",
-    "jurisdiction": "California",
+    "question": "Does the right to privacy under Article 21 of the Indian Constitution extend to digital data protection, and what legal test must state surveillance satisfy to comply with it?",
+    "jurisdiction": "India",
     "expected_sources": [
-      "california_civil_code_section_1950_5.txt",
-      "granberry_v_covas_1999.txt"
+      "constitution_of_india.txt",
+      "ks_puttaswamy_v_union_of_india_2017.txt"
     ],
-    "reference_answer": "Yes. Under California Civil Code Section 1950.5(g)(1), a landlord must furnish an itemized statement and return the remaining deposit within 21 calendar days. In Granberry v. Covas (1999), the Supreme Court of California held that failure to comply with this 21-day deadline results in forfeiture of the right to retain the security deposit. However, the court also clarified that the landlord's underlying claim for damages is not extinguished; they may still sue the tenant in an independent action to recover costs for repairs, cleaning, or unpaid rent.",
-    "relevant_documents": ["california_civil_code_section_1950_5.txt", "granberry_v_covas_1999.txt"],
+    "reference_answer": "Yes. In K.S. Puttaswamy v. Union of India (2017), the Supreme Court of India held that the right to privacy is a fundamental right guaranteed under Article 21. Any state intrusion into privacy, including digital surveillance, must satisfy a three-fold test: (1) legality (backed by a clear law), (2) necessity (serving a legitimate state aim), and (3) proportionality (proportional relation between the objective and the constraint on the right).",
+    "relevant_documents": ["constitution_of_india.txt", "ks_puttaswamy_v_union_of_india_2017.txt"],
     "metadata": {
-      "topic": "security deposit forfeiture",
-      "complexity": "medium"
+      "topic": "fundamental rights privacy",
+      "complexity": "high"
     }
   },
   {
     "id": "q_02",
-    "question": "Is a tenant entitled to double statutory damages automatically if the landlord makes excessive deductions from a security deposit under California law?",
-    "jurisdiction": "California",
+    "question": "Under Regulation 3 and 4 of SEBI (Prohibition of Insider Trading) Regulations 2015, what constitutes Unpublished Price Sensitive Information (UPSI), and can communications be made to joint venture partners during due diligence?",
+    "jurisdiction": "India",
     "expected_sources": [
-      "california_civil_code_section_1950_5.txt",
-      "hamilton_v_smith_2011.txt"
+      "sebi_insider_trading_regulations_2015.txt"
     ],
-    "reference_answer": "No. California Civil Code Section 1950.5(l) permits statutory damages of up to twice the amount of the security deposit for 'bad faith' retention of a deposit. In Hamilton v. Smith (2011), the Court of Appeal ruled that 'bad faith' requires intentional dishonesty, self-dealing, or moral obliquity. An honest but mistaken dispute over deductions (such as painting or carpet wear and tear) does not constitute bad faith, meaning statutory damages are not awarded automatically and require a showing of bad faith.",
-    "relevant_documents": ["california_civil_code_section_1950_5.txt", "hamilton_v_smith_2011.txt"],
+    "reference_answer": "Under the SEBI PIT Regulations, UPSI is any information relating to a company or its securities that is not generally available and which upon becoming available is likely to materially affect the price of the securities. Communication of UPSI is prohibited under Regulation 3 except where it is in furtherance of legitimate purposes, performance of duties, or discharge of legal obligations. Due diligence communication is permitted under Regulation 3(3) subject to executing confidentiality agreements.",
+    "relevant_documents": ["sebi_insider_trading_regulations_2015.txt"],
     "metadata": {
-      "topic": "statutory damages bad faith",
-      "complexity": "medium"
+      "topic": "insider trading regulatory compliance",
+      "complexity": "high"
     }
   },
   {
     "id": "q_03",
-    "question": "In the provided lease agreement for 456 Oak Street, the landlord claims they have 30 days to return the security deposit. Is this clause legally enforceable under California law?",
-    "jurisdiction": "California",
+    "question": "In the provided lease agreement, the landlord Rajesh Kumar has a clause saying he can issue a cheque bounce notice within 60 days of dishonour. Does this comply with Section 138 of the Negotiable Instruments Act?",
+    "jurisdiction": "India",
     "expected_sources": [
-      "california_civil_code_section_1950_5.txt",
-      "sample_lease_agreement.txt"
+      "negotiable_instruments_act_1881.txt",
+      "dalmia_cement_v_galaxy_traders_2001.txt"
     ],
-    "reference_answer": "No. Under California Civil Code Section 1950.5(g)(1), the statutory timeline is 21 calendar days and is mandatory. In California, statutory tenant protections under Civil Code Section 1950.5 cannot be waived by contract. Any clause in a lease agreement extending the refund period to 30 days is void and unenforceable as a matter of public policy.",
-    "relevant_documents": ["california_civil_code_section_1950_5.txt", "sample_lease_agreement.txt"],
+    "reference_answer": "No. Under Section 138(b) of the Negotiable Instruments Act, 1881, the payee must make a demand for payment by giving notice in writing within 30 days of receiving the return memo from the bank. Any contract clause extending this statutory notice period to 60 days violates this mandatory statutory limit, rendering the criminal action under Section 138 invalid. In Dalmia Cement (2001), the Supreme Court upheld that statutory timelines under Section 138 must be strictly enforced.",
+    "relevant_documents": ["negotiable_instruments_act_1881.txt", "dalmia_cement_v_galaxy_traders_2001.txt"],
     "metadata": {
-      "topic": "contractual waiver of tenant rights",
-      "complexity": "high"
+      "topic": "cheque dishonour notice timeline",
+      "complexity": "medium"
     }
   }
 ]
