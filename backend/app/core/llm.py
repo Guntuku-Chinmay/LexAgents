@@ -53,12 +53,27 @@ def generate_chat_completion(
         if json_mode:
             # Try to return a structured JSON based on context clues
             if "coordinator" in full_prompt.lower() or "decompose" in full_prompt.lower():
-                return json.dumps({
-                    "tasks": [
-                        {"query": "mock task 1", "agent": "case_law", "reason": "test case"},
-                        {"query": "mock task 2", "agent": "statute", "reason": "test statute"}
-                    ]
-                })
+                user_query = messages[-1]["content"].lower() if messages else ""
+                if "privacy" in user_query or "article 21" in user_query or "constitution" in user_query:
+                    return json.dumps({
+                        "tasks": [
+                            {"query": "Article 21 privacy", "agent": "constitutional", "reason": "constitutional check"},
+                            {"query": "Puttaswamy privacy case", "agent": "case_law", "reason": "case precedent"}
+                        ]
+                    })
+                elif "insider" in user_query or "sebi" in user_query or "circular" in user_query or "rbi" in user_query:
+                    return json.dumps({
+                        "tasks": [
+                            {"query": "SEBI PIT Regulations", "agent": "regulatory", "reason": "regulatory check"}
+                        ]
+                    })
+                else:
+                    return json.dumps({
+                        "tasks": [
+                            {"query": "mock task 1", "agent": "case_law", "reason": "test case"},
+                            {"query": "mock task 2", "agent": "statute", "reason": "test statute"}
+                        ]
+                    })
             elif "verification" in full_prompt.lower() or "verify" in full_prompt.lower():
                 return json.dumps({
                     "verification_results": [

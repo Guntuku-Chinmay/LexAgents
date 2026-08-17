@@ -1,6 +1,8 @@
 import pytest
 from backend.app.models.schemas import Evidence, VerificationResult, TaskDecomposition
 from backend.app.agents.coordinator import coordinator_agent
+from backend.app.agents.constitutional import constitutional_research_agent
+from backend.app.agents.regulatory import regulatory_agent
 from backend.app.agents.synthesis import synthesis_agent
 from backend.app.agents.verification import verification_agent
 from backend.app.agents.reflection import reflection_agent, orchestrator
@@ -12,6 +14,45 @@ def test_coordinator_agent():
     output = coordinator_agent.decompose_query("Test tenant query", active_documents=[])
     assert len(output.tasks) > 0
     assert any(t.agent in ["case_law", "statute"] for t in output.tasks)
+
+def test_coordinator_indian_routing():
+    # Test constitutional routing
+    out_const = coordinator_agent.decompose_query("Does Article 21 protect digital privacy?", active_documents=[])
+    assert any(t.agent == "constitutional" for t in out_const.tasks)
+
+    # Test regulatory routing
+    out_reg = coordinator_agent.decompose_query("SEBI PIT rules regarding insider trading.", active_documents=[])
+    assert any(t.agent == "regulatory" for t in out_reg.tasks)
+
+def test_constitutional_agent():
+    import uuid
+    uuid_c = str(uuid.uuid5(uuid.NAMESPACE_DNS, "c_india_1"))
+    retriever.index_chunks("statutes", [
+        {
+            "id": uuid_c,
+            "text": "Article 21 guarantees protection of life and liberty.",
+            "metadata": {"doc_type": "constitutional", "article": "21", "filename": "const.txt"}
+        }
+    ])
+    ev_list = constitutional_research_agent.search("Article 21 privacy")
+    assert len(ev_list) > 0
+    assert ev_list[0].doc_type == "constitutional"
+    assert "Article 21" in ev_list[0].source
+
+def test_regulatory_agent():
+    import uuid
+    uuid_r = str(uuid.uuid5(uuid.NAMESPACE_DNS, "sebi_reg_1"))
+    retriever.index_chunks("statutes", [
+        {
+            "id": uuid_r,
+            "text": "Regulation 3 SEBI PIT prohibited communication.",
+            "metadata": {"doc_type": "regulation", "regulation": "3", "filename": "sebi.txt"}
+        }
+    ])
+    ev_list = regulatory_agent.search("Regulation 3 UPSI")
+    assert len(ev_list) > 0
+    assert ev_list[0].doc_type == "regulation"
+    assert "Regulation 3" in ev_list[0].source
 
 def test_synthesis_agent():
     evidence = [

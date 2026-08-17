@@ -11,6 +11,8 @@ from backend.app.models.schemas import (
 )
 from backend.app.database.db_manager import db
 from backend.app.agents.coordinator import coordinator_agent
+from backend.app.agents.constitutional import constitutional_research_agent
+from backend.app.agents.regulatory import regulatory_agent
 from backend.app.agents.case_law import case_law_agent
 from backend.app.agents.statute import statute_agent
 from backend.app.agents.legal_document import legal_document_agent
@@ -126,6 +128,8 @@ reflection_agent = ReflectionAgent()
 class Orchestrator:
     def __init__(self):
         self.coordinator = coordinator_agent
+        self.constitutional = constitutional_research_agent
+        self.regulatory = regulatory_agent
         self.case_law = case_law_agent
         self.statute = statute_agent
         self.legal_doc = legal_document_agent
@@ -188,7 +192,11 @@ class Orchestrator:
                 logger.info(f"Dispatching task to '{task.agent}': '{task.query}'")
                 
                 results: List[Evidence] = []
-                if task.agent == "case_law":
+                if task.agent == "constitutional":
+                    results = self.constitutional.search(task.query)
+                elif task.agent == "regulatory":
+                    results = self.regulatory.search(task.query)
+                elif task.agent == "case_law":
                     results = self.case_law.search(task.query)
                 elif task.agent == "statute":
                     results = self.statute.search(task.query)
