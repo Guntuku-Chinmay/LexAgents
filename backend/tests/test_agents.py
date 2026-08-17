@@ -79,6 +79,66 @@ def test_verification_agent():
     assert results[0].supported is True
     assert results[0].citation_correct is True
 
+def test_verification_multi_valued_classification():
+    from backend.app.core.llm import set_mock_response, clear_mock_responses
+    
+    evidence = [
+        Evidence(id="ev_ni", text="Section 138 Negotiable Instruments Act timeline is 30 days.", source="NI Act Section 138", doc_type="central_act", score=0.9),
+        Evidence(id="ev_const", text="Article 21 guarantees protection of life.", source="Constitution Article 21", doc_type="constitutional", score=0.8)
+    ]
+    
+    set_mock_response(
+        "verify",
+        {
+            "verification_results": [
+                {
+                    "claim": "Cheque bounce notice can be sent after 60 days.",
+                    "supported": False,
+                    "evidence_index": 1,
+                    "confidence": 0.99,
+                    "issues": ["Notice must be sent within 30 days, not 60"],
+                    "importance": "high",
+                    "verification_status": "contradicted",
+                    "evidence_links": [
+                        {
+                            "evidence_index": 1,
+                            "relationship": "contradicts"
+                        }
+                    ]
+                },
+                {
+                    "claim": "Article 21 guarantees right to privacy in absolute terms.",
+                    "supported": False,
+                    "evidence_index": 2,
+                    "confidence": 0.8,
+                    "issues": ["Right to privacy is fundamental but subject to reasonable restrictions"],
+                    "importance": "medium",
+                    "verification_status": "partially_supported",
+                    "evidence_links": [
+                        {
+                            "evidence_index": 2,
+                            "relationship": "context_only"
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+    
+    try:
+        ans = "Cheque bounce notice can be sent after 60 days [1]. Article 21 guarantees right to privacy in absolute terms [2]."
+        results = verification_agent.verify(ans, evidence)
+        assert len(results) == 2
+        
+        assert results[0].verification_status == "contradicted"
+        assert results[0].supported is False
+        assert results[0].evidence_links[0]["relationship"] == "contradicts"
+        
+        assert results[1].verification_status == "partially_supported"
+        assert results[1].evidence_links[0]["relationship"] == "context_only"
+    finally:
+        clear_mock_responses()
+
 def test_reflection_agent():
     from backend.app.core.llm import set_mock_response, clear_mock_responses
     
