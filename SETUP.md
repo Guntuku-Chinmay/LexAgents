@@ -81,11 +81,52 @@ If you prefer to run services manually on your local system:
 
 ---
 
-## 4. Environment Variables Reference (`.env`)
+## 4. Environment Variables Reference
+
+### Backend Settings (`.env` or Server Environment)
 
 - `OPENAI_API_KEY`: API Key. If set to `mock-key-for-testing`, triggers local offline simulator.
+- `OPENAI_API_BASE`: OpenAI compatible API base URL. Defaults to `https://api.openai.com/v1`.
 - `LLM_MODEL`: Model name (default: `gpt-4o-mini`).
 - `EMBEDDING_MODEL`: Embedding model (default: `text-embedding-3-small`).
-- `DATABASE_URL`: PostgreSQL connection URL (e.g. `postgresql://postgres:postgrespassword@localhost:5432/lexagents`).
-- `QDRANT_STORAGE_PATH`: Local directory path for Qdrant storage.
-- `WEB_SEARCH_ENABLED`: Set `True`/`False` to toggle web search agent capabilities.
+- `DATABASE_URL`: PostgreSQL connection URL (e.g., `postgresql://user:pass@host:port/dbname`). If left empty, falls back to local SQLite under `SQLITE_DB_PATH`.
+- `QDRANT_URL`: Optional remote Qdrant database URL (e.g., `https://qdrant-instance.cloud.qdrant.io:6333`).
+- `QDRANT_API_KEY`: Optional remote Qdrant API key.
+- `QDRANT_STORAGE_PATH`: Local directory path for Qdrant storage if running locally (default: `data/qdrant_db`).
+- `CORS_ORIGINS`: Comma-separated list of allowed CORS origins (default: `http://localhost:3000,http://127.0.0.1:3000,https://lex-agents.vercel.app`).
+- `WEB_SEARCH_ENABLED`: Set `True`/`False` to toggle web search capabilities.
+- `PORT`: Server port (default: `8000`).
+- `HOST`: Server host (default: `127.0.0.1`).
+
+### Frontend Settings (`.env.local` or Vercel Environment)
+
+- `NEXT_PUBLIC_API_URL`: The public url of your FastAPI backend service (e.g., `https://lex-agents-backend.up.railway.app` or similar). If left empty, falls back to `http://localhost:8000` in development mode, but raises a descriptive runtime error in production client sessions.
+
+---
+
+## 5. Production Deployment Guide
+
+### 1. Backend Deployment (FastAPI)
+The FastAPI backend can be deployed using the existing `backend/Dockerfile` to platform-as-a-service providers like **Render**, **Railway**, **Fly.io**, or **AWS ECS/Fargate**.
+
+#### Step-by-Step with Railway/Render:
+1. Connect your Github repository to the platform.
+2. Select `backend/Dockerfile` as the build context / build path.
+3. Configure the required environment variables:
+   - `OPENAI_API_KEY`: Your production OpenAI API key.
+   - `DATABASE_URL`: Connection string to your hosted PostgreSQL database.
+   - `QDRANT_URL` and `QDRANT_API_KEY`: Connection details for your hosted Qdrant vector database.
+   - `CORS_ORIGINS`: Set to your production frontend URL: `https://lex-agents.vercel.app` (or your custom Vercel domain).
+4. Set the start command or let the Dockerfile default CMD handle it (`python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`).
+
+### 2. Frontend Deployment (Vercel)
+The Next.js client is already configured for deployment under the `frontend/` subdirectory on Vercel.
+
+1. In your **Vercel Dashboard**, go to **Settings > General** and ensure the **Root Directory** is set to `frontend`.
+2. Go to **Settings > Environment Variables** and add `NEXT_PUBLIC_API_URL` pointing to your deployed FastAPI backend URL (e.g. `https://lex-agents-backend.up.railway.app`).
+3. Trigger a redeploy of your Vercel project to bundle the updated API url.
+
+### 3. Verifying Connectivity
+Once both are deployed, check the following:
+- Verify the backend is up by visiting `https://<your-backend-domain>/health` in a browser. It should return `{"status": "healthy", "service": "LexAgents API"}`.
+- Open your Vercel deployment (`https://lex-agents.vercel.app`), enter a test query, and observe that research, verification, and reflection results populate correctly without producing "Failed to fetch" errors.
