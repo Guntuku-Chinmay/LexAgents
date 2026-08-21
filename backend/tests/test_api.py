@@ -8,6 +8,29 @@ def test_health_check(client):
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
+def test_root_health_check(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+    assert response.json()["service"] == "LexAgents API"
+
+def test_cors_headers(client):
+    headers = {
+        "Origin": "https://lex-agents.vercel.app",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type"
+    }
+    response = client.options("/api/research", headers=headers)
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://lex-agents.vercel.app"
+
+    bad_headers = {
+        "Origin": "https://unauthorized-domain.com",
+        "Access-Control-Request-Method": "POST"
+    }
+    bad_response = client.options("/api/research", headers=bad_headers)
+    assert bad_response.headers.get("access-control-allow-origin") is None
+
 def test_conduct_research_api(client):
     import uuid
     uuid_s = str(uuid.uuid5(uuid.NAMESPACE_DNS, "s1"))
