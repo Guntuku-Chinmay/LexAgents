@@ -38,7 +38,15 @@ def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
 
 class HybridRetriever:
     def __init__(self, storage_path: str = settings.QDRANT_STORAGE_PATH):
-        self.client = QdrantClient(path=storage_path)
+        if settings.QDRANT_URL:
+            logger.info(f"Connecting to remote Qdrant at: {settings.QDRANT_URL}")
+            self.client = QdrantClient(
+                url=settings.QDRANT_URL,
+                api_key=settings.QDRANT_API_KEY
+            )
+        else:
+            logger.info(f"Connecting to local Qdrant storage at: {storage_path}")
+            self.client = QdrantClient(path=storage_path)
 
     def init_collection(self, collection_name: str, vector_size: int = 1536):
         """Initialize collection in Qdrant if it doesn't exist."""
