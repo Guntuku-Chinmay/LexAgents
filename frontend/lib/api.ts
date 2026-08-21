@@ -1,13 +1,25 @@
 import { ResearchResponse, SessionObservabilityResponse, EvaluationRunResult } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+function getApiBase(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    if (process.env.NODE_ENV === "production" && typeof window !== "undefined") {
+      throw new Error(
+        "Production backend URL is not configured. Please set the NEXT_PUBLIC_API_URL environment variable in your Vercel project settings."
+      );
+    }
+    return "http://127.0.0.1:8000";
+  }
+  return url;
+}
+
 
 export async function conductResearch(
   query: string,
   sessionId?: string,
   useWeb: boolean = true
 ): Promise<ResearchResponse> {
-  const response = await fetch(`${API_BASE}/api/research`, {
+  const response = await fetch(`${getApiBase()}/api/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, session_id: sessionId, use_web: useWeb }),
@@ -28,7 +40,7 @@ export async function uploadDocument(file: File): Promise<{
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/api/documents/upload`, {
+  const response = await fetch(`${getApiBase()}/api/documents/upload`, {
     method: "POST",
     body: formData,
   });
@@ -42,7 +54,7 @@ export async function uploadDocument(file: File): Promise<{
 export async function getSessionObservability(
   sessionId: string
 ): Promise<SessionObservabilityResponse> {
-  const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/observability`);
+  const response = await fetch(`${getApiBase()}/api/sessions/${sessionId}/observability`);
   if (!response.ok) {
     throw new Error("Failed to fetch session observability data");
   }
@@ -54,7 +66,7 @@ export async function runEvaluation(): Promise<{
   message: string;
   results: Record<string, any>[];
 }> {
-  const response = await fetch(`${API_BASE}/api/evaluate`, { method: "POST" });
+  const response = await fetch(`${getApiBase()}/api/evaluate`, { method: "POST" });
   if (!response.ok) {
     throw new Error("Failed to execute benchmark evaluation");
   }
@@ -62,7 +74,7 @@ export async function runEvaluation(): Promise<{
 }
 
 export async function getEvaluationResults(): Promise<EvaluationRunResult[]> {
-  const response = await fetch(`${API_BASE}/api/evaluation/results`);
+  const response = await fetch(`${getApiBase()}/api/evaluation/results`);
   if (!response.ok) {
     throw new Error("Failed to fetch evaluation runs");
   }
