@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # PostgreSQL configuration URL (optional, fallback to SQLite if not provided)
     DATABASE_URL: Optional[str] = Field(default=None)
 
+    # Qdrant server URL and API key (optional, fallback to local path if not provided)
+    QDRANT_URL: Optional[str] = Field(default=None)
+    QDRANT_API_KEY: Optional[str] = Field(default=None)
+
     # API Settings
     PORT: int = Field(default=8000)
     HOST: str = Field(default="127.0.0.1")
@@ -24,6 +28,9 @@ class Settings(BaseSettings):
     
     # Web Search Toggle
     WEB_SEARCH_ENABLED: bool = Field(default=True)
+
+    # CORS Configuration (comma-separated origins)
+    CORS_ORIGINS: str = Field(default="http://localhost:3000,http://127.0.0.1:3000,https://lex-agents.vercel.app")
 
     # Config model for Pydantic v2
     model_config = SettingsConfigDict(

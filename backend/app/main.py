@@ -20,13 +20,21 @@ app = FastAPI(
 )
 
 # CORS configuration
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+logger.info(f"Configured CORS Allowed Origins: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+def health_check():
+    """Service health check."""
+    return {"status": "healthy", "service": "LexAgents API"}
 
 # Register API Router
 app.include_router(api_router)
