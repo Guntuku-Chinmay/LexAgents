@@ -106,25 +106,77 @@ class HybridRetriever:
             points=points
         )
         logger.info(f"Successfully indexed {len(chunks)} chunks in collection '{collection_name}'")
-
-    def _get_qdrant_filter(self, metadata_filter: Optional[Dict[str, Any]]) -> Optional[Filter]:
-        """Convert a simple dict filter into Qdrant FieldConditions."""
-        if not metadata_filter:
-            return None
-        
+    def _get_qdrant_filter(self, metadata_filter: Optional[Dict[str, Any]], query: Optional[str] = None) -> Optional[Filter]:
+        """Convert a simple dict filter into Qdrant FieldConditions, adding active status filter by default."""
         conditions = []
-        for key, val in metadata_filter.items():
-            if val is not None:
-                conditions.append(
+        if metadata_filter:
+            for key, val in metadata_filter.items():
+                if val is not None:
+                    conditions.append(
+                        FieldCondition(
+                            key=f"metadata.{key}",
+                            match=MatchValue(value=val)
+                        )
+                    )
+        
+        # Apply active status filter if not a historical query and status is not explicitly filtered
+        has_status_filter = any(c.key == "metadata.status" for c in conditions) if conditions else False
+        is_historical = False
+        if query:
+            is_historical = bool(re.search(
+                r'(history|historical|supersede|superseded|repeal|repealed|older|previous|prior to|amended|former)', 
+                query, 
+                re.IGNORECASE
+            ))
+            
+        if not is_historical and not has_status_filter:
+            exclude_statuses = ["SUPERSEDED", "AMENDED", "REPEALED", "ARCHIVED"]
+            must_not_conditions = []
+            for estatus in exclude_statuses:
+                must_not_conditions.append(
                     FieldCondition(
-                        key=f"metadata.{key}",
-                        match=MatchValue(value=val)
+                        key="metadata.status",
+                        match=MatchValue(value=estatus)
                     )
                 )
-        
+            if conditions:
+                return Filter(must=conditions, must_not=must_not_conditions)
+            else:
+                return Filter(must_not=must_not_conditions)
+
         if conditions:
             return Filter(must=conditions)
         return None
+
+    def update_document_status_payload(self, document_id: str, status: str):
+        """Update payload status for all points belonging to a document_id in Qdrant."""
+        try:
+            collections = [c.name for c in self.client.get_collections().collections]
+        except Exception:
+            collections = ["cases", "statutes", "legal_documents"]
+            
+        for col in collections:
+            try:
+                q_filter = Filter(must=[FieldCondition(key="metadata.document_id", match=MatchValue(value=document_id))])
+                scroll_res, _ = self.client.scroll(
+                    collection_name=col,
+                    scroll_filter=q_filter,
+                    limit=10000,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                if scroll_res:
+                    for p in scroll_res:
+                        payload = p.payload
+                        if "metadata" in payload:
+                            payload["metadata"]["status"] = status
+                            self.client.set_payload(
+                                collection_name=col,
+                                payload=payload,
+                                points=[p.id]
+                            )
+            except Exception as e:
+                logger.warning(f"Failed to update status payload in collection {col}: {e}")
 
     def search_vector(
         self, 
@@ -137,7 +189,7 @@ class HybridRetriever:
         self.init_collection(collection_name)
         
         query_vector = generate_embeddings([query])[0]
-        q_filter = self._get_qdrant_filter(metadata_filter)
+        q_filter = self._get_qdrant_filter(metadata_filter, query)
         
         query_response = self.client.query_points(
             collection_name=collection_name,
@@ -156,10 +208,15 @@ class HybridRetriever:
             })
         return results
 
-    def _get_all_chunks_filtered(self, collection_name: str, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def _get_all_chunks_filtered(
+        self, 
+        collection_name: str, 
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        query: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Get all chunks from a collection matching metadata filters to build a local BM25 index."""
         self.init_collection(collection_name)
-        q_filter = self._get_qdrant_filter(metadata_filter)
+        q_filter = self._get_qdrant_filter(metadata_filter, query)
         
         scroll_results, _ = self.client.scroll(
             collection_name=collection_name,

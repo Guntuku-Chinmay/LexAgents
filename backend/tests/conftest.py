@@ -17,6 +17,11 @@ from backend.app.retrieval.vector_bm25 import retriever
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_directories():
     """Ensure test directories are created and clean."""
+    try:
+        if os.path.exists("backend/app/database/test_lexagents.db"):
+            os.remove("backend/app/database/test_lexagents.db")
+    except Exception:
+        pass
     os.makedirs("data/test_qdrant_db", exist_ok=True)
     os.makedirs("backend/app/database", exist_ok=True)
     yield

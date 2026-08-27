@@ -64,6 +64,14 @@ class Document(Base):
     filename = Column(String(255), nullable=False)
     doc_type = Column(String(50), nullable=False)  # 'case', 'statute', 'user_upload'
     metadata_json = Column(Text, nullable=False)
+    content_hash = Column(String(64), nullable=True)
+    publication_date = Column(DateTime, nullable=True)
+    effective_from = Column(DateTime, nullable=True)
+    effective_to = Column(DateTime, nullable=True)
+    version = Column(Integer, default=1, nullable=False)
+    status = Column(String(50), default="ACTIVE", nullable=False)
+    source_url = Column(String(500), nullable=True)
+    parent_doc_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Source(Base):

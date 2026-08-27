@@ -19,15 +19,23 @@ def get_collection_for_doc_type(doc_type: str) -> str:
 
 def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = None, collection_name: Optional[str] = None) -> int:
     """
-    Ingest a single file: parse it, store metadata in SQLite, and index in Qdrant.
+    Ingest a single file: parse it, verify SHA-256 hash duplication, and handle versioning.
     Returns the number of indexed chunks.
     """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
 
-    logger.info(f"Ingesting file: {filepath}")
-    
-    # 1. Parse and chunk file
+    # 1. Compute SHA-256 content hash
+    import hashlib
+    hasher = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        buf = f.read()
+        hasher.update(buf)
+    content_hash = hasher.hexdigest()
+
+    logger.info(f"Ingesting file: {filepath} (SHA-256: {content_hash})")
+
+    # 2. Parse and chunk file
     chunks = parse_and_chunk_file(filepath, metadata_override)
     if not chunks:
         logger.warning(f"No chunks extracted from file: {filepath}")
@@ -37,27 +45,59 @@ def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = Non
     doc_metadata = chunks[0]["metadata"]
     doc_type = doc_metadata.get("doc_type", "user_upload")
     filename = os.path.basename(filepath)
+
+    # 3. Duplicate Detection Check
+    existing_by_hash = db.get_document_by_hash(content_hash)
+    if existing_by_hash:
+        logger.info(f"Duplicate content detected for {filename} (SHA-256: {content_hash}). Skipping indexing.")
+        return len(chunks)
+
+    # 4. Versioning and Lifecycle Status
+    existing_by_filename = db.get_document_by_filename(filename)
     
-    # Generate stable unique document ID
-    doc_id = doc_metadata.get("document_id") or str(uuid.uuid5(uuid.NAMESPACE_DNS, filename))
+    version = 1
+    parent_doc_id = None
     
-    # Add doc_id to all chunks metadata
+    if existing_by_filename:
+        prev_doc_id = existing_by_filename["doc_id"]
+        prev_version = existing_by_filename["version"]
+        parent_doc_id = existing_by_filename["parent_doc_id"] or prev_doc_id
+        version = prev_version + 1
+        
+        # Supercede previous active version in database and Qdrant
+        db.update_document_status(prev_doc_id, "SUPERSEDED")
+        retriever.update_document_status_payload(prev_doc_id, "SUPERSEDED")
+        logger.info(f"Superseding previous version {prev_version} (ID: {prev_doc_id}) of {filename} with version {version}")
+
+    # Generate stable unique document ID for this version
+    doc_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}_v{version}"))
+
+    # Add payload metadata to chunks
     for chunk in chunks:
         chunk["metadata"]["document_id"] = doc_id
+        chunk["metadata"]["parent_doc_id"] = parent_doc_id
+        chunk["metadata"]["version"] = version
+        chunk["metadata"]["status"] = "ACTIVE"
+        chunk["metadata"]["content_hash"] = content_hash
+        chunk["metadata"]["authority"] = doc_metadata.get("authority_level", "TIER 4")
 
-    # 2. Determine target collection
+    # 5. Determine target collection
     if not collection_name:
         collection_name = get_collection_for_doc_type(doc_type)
 
-    # 3. Save document meta in SQLite
+    # 6. Save document meta in DB
     db.add_document(
         doc_id=doc_id,
         filename=filename,
         doc_type=doc_type,
-        metadata=doc_metadata
+        metadata=doc_metadata,
+        content_hash=content_hash,
+        version=version,
+        status="ACTIVE",
+        parent_doc_id=parent_doc_id
     )
 
-    # 4. Index chunks in Qdrant hybrid index
+    # 7. Index chunks in Qdrant hybrid index
     retriever.index_chunks(collection_name, chunks)
     
     logger.info(f"Finished ingesting {filename}. {len(chunks)} chunks written to Qdrant collection '{collection_name}'")

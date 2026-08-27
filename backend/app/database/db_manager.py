@@ -133,7 +133,48 @@ class DBManager:
             db.close()
 
     # Documents
-    def add_document(self, doc_id: str, filename: str, doc_type: str, metadata: Dict[str, Any]):
+    def add_document(
+        self, 
+        doc_id: str, 
+        filename: str, 
+        doc_type: str, 
+        metadata: Dict[str, Any],
+        content_hash: Optional[str] = None,
+        publication_date: Optional[datetime.datetime] = None,
+        effective_from: Optional[datetime.datetime] = None,
+        effective_to: Optional[datetime.datetime] = None,
+        version: int = 1,
+        status: str = "ACTIVE",
+        source_url: Optional[str] = None,
+        parent_doc_id: Optional[str] = None
+    ):
+        # Extract from metadata dict if not explicitly passed
+        if not content_hash:
+            content_hash = metadata.get("content_hash")
+        if not publication_date and metadata.get("publication_date"):
+            try:
+                pub_date_str = metadata.get("publication_date")
+                if isinstance(pub_date_str, str):
+                    publication_date = datetime.datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        if not effective_from and metadata.get("effective_from"):
+            try:
+                eff_from_str = metadata.get("effective_from")
+                if isinstance(eff_from_str, str):
+                    effective_from = datetime.datetime.fromisoformat(eff_from_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        if not effective_to and metadata.get("effective_to"):
+            try:
+                eff_to_str = metadata.get("effective_to")
+                if isinstance(eff_to_str, str):
+                    effective_to = datetime.datetime.fromisoformat(eff_to_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        if not source_url:
+            source_url = metadata.get("source_url")
+            
         metadata_str = json.dumps(metadata)
         db = self._get_db()
         try:
@@ -141,7 +182,15 @@ class DBManager:
                 doc_id=doc_id,
                 filename=filename,
                 doc_type=doc_type,
-                metadata_json=metadata_str
+                metadata_json=metadata_str,
+                content_hash=content_hash,
+                publication_date=publication_date,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                version=version,
+                status=status,
+                source_url=source_url,
+                parent_doc_id=parent_doc_id
             )
             db.merge(db_doc)
             db.commit()
@@ -166,9 +215,77 @@ class DBManager:
                     "doc_id": d.doc_id,
                     "filename": d.filename,
                     "doc_type": d.doc_type,
-                    "metadata": json.loads(d.metadata_json) if d.metadata_json else {}
+                    "metadata": json.loads(d.metadata_json) if d.metadata_json else {},
+                    "content_hash": d.content_hash,
+                    "publication_date": d.publication_date.isoformat() if d.publication_date else None,
+                    "effective_from": d.effective_from.isoformat() if d.effective_from else None,
+                    "effective_to": d.effective_to.isoformat() if d.effective_to else None,
+                    "version": d.version,
+                    "status": d.status,
+                    "source_url": d.source_url,
+                    "parent_doc_id": d.parent_doc_id
                 })
             return result
+        finally:
+            db.close()
+
+    def get_document_by_hash(self, content_hash: str) -> Optional[Dict[str, Any]]:
+        db = self._get_db()
+        try:
+            d = db.query(DBDocument).filter_by(content_hash=content_hash).first()
+            if not d:
+                return None
+            return {
+                "doc_id": d.doc_id,
+                "filename": d.filename,
+                "doc_type": d.doc_type,
+                "metadata": json.loads(d.metadata_json) if d.metadata_json else {},
+                "content_hash": d.content_hash,
+                "publication_date": d.publication_date.isoformat() if d.publication_date else None,
+                "effective_from": d.effective_from.isoformat() if d.effective_from else None,
+                "effective_to": d.effective_to.isoformat() if d.effective_to else None,
+                "version": d.version,
+                "status": d.status,
+                "source_url": d.source_url,
+                "parent_doc_id": d.parent_doc_id
+            }
+        finally:
+            db.close()
+
+    def get_document_by_filename(self, filename: str) -> Optional[Dict[str, Any]]:
+        db = self._get_db()
+        try:
+            d = db.query(DBDocument).filter_by(filename=filename).order_by(DBDocument.version.desc()).first()
+            if not d:
+                return None
+            return {
+                "doc_id": d.doc_id,
+                "filename": d.filename,
+                "doc_type": d.doc_type,
+                "metadata": json.loads(d.metadata_json) if d.metadata_json else {},
+                "content_hash": d.content_hash,
+                "publication_date": d.publication_date.isoformat() if d.publication_date else None,
+                "effective_from": d.effective_from.isoformat() if d.effective_from else None,
+                "effective_to": d.effective_to.isoformat() if d.effective_to else None,
+                "version": d.version,
+                "status": d.status,
+                "source_url": d.source_url,
+                "parent_doc_id": d.parent_doc_id
+            }
+        finally:
+            db.close()
+
+    def update_document_status(self, doc_id: str, status: str):
+        db = self._get_db()
+        try:
+            d = db.query(DBDocument).filter_by(doc_id=doc_id).first()
+            if d:
+                d.status = status
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error in update_document_status: {e}")
+            raise e
         finally:
             db.close()
 
