@@ -35,6 +35,7 @@ services:
       - qdrant
     environment:
       - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/lexagents
+      - QDRANT_URL=http://qdrant:6333
       - QDRANT_STORAGE_PATH=data/qdrant_db
       - OPENAI_API_KEY=mock-key-for-testing
       - LLM_MODEL=gpt-4o-mini

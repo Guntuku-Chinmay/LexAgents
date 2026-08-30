@@ -130,3 +130,42 @@ The Next.js client is already configured for deployment under the `frontend/` su
 Once both are deployed, check the following:
 - Verify the backend is up by visiting `https://<your-backend-domain>/health` in a browser. It should return `{"status": "healthy", "service": "LexAgents API"}`.
 - Open your Vercel deployment (`https://lex-agents.vercel.app`), enter a test query, and observe that research, verification, and reflection results populate correctly without producing "Failed to fetch" errors.
+
+---
+
+## 6. Hackathon Portable Setup Instructions
+
+For quick portable execution during the hackathon, follow these instructions:
+
+### Prerequisites
+*   **Docker Desktop**: Download and run [Docker Desktop](https://www.docker.com/products/docker-desktop). Make sure the Docker daemon is active.
+*   **OpenAI API Key**: Obtain a key from [platform.openai.com](https://platform.openai.com/). If none is provided, the system will use local mocks for testing.
+
+### Running with One-Click Scripts (Windows)
+1.  Double-click `start-hackathon.bat` or run `.\start-hackathon.ps1` in PowerShell.
+2.  If prompted, enter your `OPENAI_API_KEY` (the script automatically writes it to `.env` and handles setting up default settings).
+3.  The script will clear old volumes and spin up the complete Docker Compose stack.
+
+### Running Manually (Any OS)
+1.  Copy `.env.example` to `.env`:
+    ```bash
+    cp .env.example .env
+    ```
+2.  Set your `OPENAI_API_KEY` in `.env`.
+3.  Start the stack:
+    ```bash
+    docker compose down -v
+    docker compose up --build
+    ```
+
+### Port Map Reference
+*   **Frontend UI**: [http://localhost:3000](http://localhost:3000)
+*   **Backend API**: [http://localhost:8000](http://localhost:8000)
+*   **Qdrant Panel**: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+
+### Operational Procedures
+*   **How to stop**: Press `Ctrl+C` in the compose window, or run `docker compose down`.
+*   **How to reset**: Run `docker compose down -v` to clear database volumes, then restart to re-seed all tables.
+*   **Internet Access Requirement**: Internet is required to fetch OpenAI embeddings/chat models, and for web search queries.
+*   **Offline/Mock Fallback**: If `OPENAI_API_KEY` is not set or set to `mock-key-for-testing`, the backend will simulate embedding generation and agent planning cycles offline using deterministic mocks, which allows offline demonstration.
+

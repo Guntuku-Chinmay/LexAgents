@@ -29,9 +29,22 @@ class DBManager:
         if db_url.startswith("sqlite"):
             connect_args = {"check_same_thread": False}
             
-        logger.info(f"Connecting DBManager to: {db_url}")
-        self.engine = create_engine(db_url, connect_args=connect_args)
-        Base.metadata.create_all(self.engine)
+        import time
+        max_retries = 10
+        retry_delay = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Connecting DBManager to: {db_url} (attempt {attempt + 1}/{max_retries})")
+                self.engine = create_engine(db_url, connect_args=connect_args)
+                Base.metadata.create_all(self.engine)
+                logger.info("Database connected and tables initialized successfully.")
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Failed to connect to database after {max_retries} attempts.")
+                    raise e
+                logger.warning(f"Database connection failed. Retrying in {retry_delay}s... Error: {e}")
+                time.sleep(retry_delay)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
     def _get_db(self):
