@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     OPENAI_API_BASE: str = Field(default="https://api.openai.com/v1")
     LLM_MODEL: str = Field(default="gpt-4o-mini")
     EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
+    LLM_PROVIDER: str = Field(default="auto")  # 'auto', 'openai', 'free_fallback', 'local'
+    LOCAL_LLM_URL: Optional[str] = Field(default=None)  # e.g., http://localhost:11434/v1 for local Ollama
+    DEFAULT_LANGUAGE: str = Field(default="en")  # 'en', 'hi', 'te'
 
     # Storage Settings
     QDRANT_STORAGE_PATH: str = Field(default="data/qdrant_db")
