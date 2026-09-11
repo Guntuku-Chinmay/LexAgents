@@ -1,3 +1,4 @@
+import os
 import io
 from fastapi.testclient import TestClient
 from backend.app.database.db_manager import db
@@ -56,14 +57,18 @@ def test_conduct_research_api(client):
 def test_document_upload_api(client):
     file_content = b"Section 5. Cheque bounce notice period. Any unpaid rent cheque delay beyond 60 days entitles Rajesh Kumar to evict."
     file_data = {"file": ("lease_clause_eviction.txt", io.BytesIO(file_content), "text/plain")}
-    
-    response = client.post("/api/documents/upload", files=file_data)
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["filename"] == "lease_clause_eviction.txt"
-    assert data["chunks_ingested"] == 1
+    dest_file = os.path.join("data", "corpus", "user_uploads", "lease_clause_eviction.txt")
+    try:
+        response = client.post("/api/documents/upload", files=file_data)
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["filename"] == "lease_clause_eviction.txt"
+        assert data["chunks_ingested"] == 1
+    finally:
+        if os.path.exists(dest_file):
+            os.remove(dest_file)
 
 def test_get_source_api(client):
     import uuid
