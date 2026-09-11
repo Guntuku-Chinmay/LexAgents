@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: lexagents-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt && python scripts/bootstrap_corpus.py
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: LLM_PROVIDER
+        value: free_fallback
+      - key: OPENAI_API_KEY
+        value: mock-key-for-testing
+      - key: SQLITE_DB_PATH
+        value: backend/app/database/lexagents.db
+      - key: QDRANT_STORAGE_PATH
+        value: data/qdrant_db
+      - key: WEB_SEARCH_ENABLED
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://127.0.0.1:3000,https://lex-agents.vercel.app"
+      - key: PYTHON_VERSION
+        value: 3.11.9
