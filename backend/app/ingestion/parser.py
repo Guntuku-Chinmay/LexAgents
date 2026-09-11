@@ -259,6 +259,258 @@ def chunk_text(text: str, max_chunk_words: int = 350, overlap_words: int = 40) -
         
     return [{"text": c, "id": str(uuid.uuid4())} for c in chunks]
 
+def parse_constitution_hierarchy(content: str, base_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Parse authoritative Constitution of India text into a structured legal hierarchy:
+    - Preamble
+    - Parts I through XXII
+    - Articles 1 through 395 (including sub-articles 21A, 31A, 39A, 43A, 43B, 48A, 51A, 243-series, 300A, etc.)
+    - Clause and sub-clause splitting for long articles
+    - Schedules 1 through 12 (with List I, II, III for Seventh Schedule)
+    Strictly validates identifiers: no prose words, no years as article numbers.
+    """
+    chunks = []
+    
+    # 1. Preamble
+    p_match = re.search(r'PREAMBLE\s*\n\s*(.*?)(?=\n\s*PART\s+I\b)', content, re.DOTALL | re.IGNORECASE)
+    if p_match:
+        p_text = p_match.group(1).strip()
+        p_meta = base_meta.copy()
+        p_meta.update({
+            "part": "PREAMBLE",
+            "article": None,
+            "parent_article": None,
+            "clause": None,
+            "sub_clause": None,
+            "schedule": None,
+            "primary_article": None,
+            "articles": []
+        })
+        chunks.append({
+            "id": str(uuid.uuid4()),
+            "text": f"THE CONSTITUTION OF INDIA\n\nPREAMBLE\n\n{p_text}",
+            "metadata": p_meta
+        })
+        
+    # Split text into Articles zone and Schedules zone
+    delimiter = "========================================\nSCHEDULES OF THE CONSTITUTION OF INDIA\n========================================"
+    if delimiter in content:
+        art_zone, sched_zone = content.split(delimiter, 1)
+    else:
+        sched_start_match = re.search(r'(?:\n|\A)\s*(?:\[?\d*\]?\s*)?FIRST\s+SCHEDULE\b', content, re.IGNORECASE)
+        if sched_start_match:
+            art_zone = content[:sched_start_match.start()]
+            sched_zone = content[sched_start_match.start():]
+        else:
+            art_zone = content
+            sched_zone = ""
+            
+    # 2. Parts & Articles
+    part_pattern = re.compile(r'(?:^|\n)\s*PART\s+([IVXLCDM]+[A-Z]?)\s*\n([^\n]+)', re.MULTILINE)
+    parts_pos = []
+    for m in part_pattern.finditer(art_zone):
+        parts_pos.append((m.start(), m.group(1).upper(), m.group(2).strip()))
+
+    def get_part_for_pos(pos):
+        current_part = "PART I: THE UNION AND ITS TERRITORY"
+        for p_start, p_num, p_title in parts_pos:
+            if pos >= p_start:
+                current_part = f"PART {p_num}: {p_title}"
+            else:
+                break
+        return current_part
+
+    art_reg = re.compile(r'(?:^|\n)\s*(?:(?:\[|\d+\[|\[\d+\])\s*)?(\d+[A-Z]?)\.\s*(?:(?:\[|\d+\[|\[\d+\])\s*)?(\[?[A-Z][^\n]+)')
+    
+    matches = []
+    for m in art_reg.finditer(art_zone):
+        num = m.group(1).upper()
+        title_line = m.group(2).strip()
+        
+        m_val = re.match(r'^(\d+)', num)
+        if not m_val:
+            continue
+        val = int(m_val.group(1))
+        # Strict validation: article must be 1 to 395, and not a year
+        if val < 1 or val > 395 or val in [1950, 1976, 2016]:
+            continue
+            
+        first_word = title_line.split()[0].lower().rstrip('.,:;[]-')
+        PROSE_WORDS = {"has", "the", "provides", "shall", "subs", "ins", "omitted", "added", "see", "for", "in", "by", "that", "this", "and", "or", "clause"}
+        if first_word in PROSE_WORDS:
+            continue
+            
+        matches.append((m.start(), num, title_line))
+        
+    for i in range(len(matches)):
+        start_pos = matches[i][0]
+        end_pos = matches[i+1][0] if i + 1 < len(matches) else len(art_zone)
+        num = matches[i][1]
+        raw_content = art_zone[start_pos:end_pos].strip()
+        part = get_part_for_pos(start_pos)
+        
+        # Clause splitting for articles with multiple numbered clauses (1), (2), (3)...
+        clause_regex = re.compile(r'(?:^|\n|\s*—\s*|\.\s*)(?:(?:\[|\d+\[|\[\d+\]|\d+\[\d+\]|\d+)\s*)?\((\d+[A-Z]?)\)\s+', re.MULTILINE)
+        c_matches = list(clause_regex.finditer(raw_content))
+        
+        if c_matches and len(c_matches) > 1:
+            for ci in range(len(c_matches)):
+                c_num = c_matches[ci].group(1)
+                c_start = c_matches[ci].start()
+                c_end = c_matches[ci+1].start() if ci + 1 < len(c_matches) else len(raw_content)
+                c_body = raw_content[c_start:c_end].strip()
+                c_body_clean = re.sub(r'^.*?\((\d+[A-Z]?)\)', r'(\1)', c_body).strip()
+                
+                sub_clauses = re.findall(r'\(([a-z])\)', c_body_clean)
+                
+                c_meta = base_meta.copy()
+                c_meta.update({
+                    "part": part,
+                    "article": num,
+                    "parent_article": num,
+                    "clause": c_num,
+                    "sub_clause": sub_clauses[0] if sub_clauses else None,
+                    "sub_clauses": sub_clauses,
+                    "schedule": None,
+                    "primary_article": num,
+                    "articles": [num, f"{num}({c_num})"]
+                })
+                
+                chunks.append({
+                    "id": str(uuid.uuid4()),
+                    "text": f"Article {num}({c_num}). {c_body_clean}",
+                    "metadata": c_meta
+                })
+        else:
+            sub_clauses = re.findall(r'\(([a-z])\)', raw_content)
+            a_meta = base_meta.copy()
+            a_meta.update({
+                "part": part,
+                "article": num,
+                "parent_article": num,
+                "clause": None,
+                "sub_clause": sub_clauses[0] if sub_clauses else None,
+                "sub_clauses": sub_clauses,
+                "schedule": None,
+                "primary_article": num,
+                "articles": [num]
+            })
+            chunks.append({
+                "id": str(uuid.uuid4()),
+                "text": f"Article {num}. {raw_content}",
+                "metadata": a_meta
+            })
+            
+    # 3. Schedules
+    sched_pattern = re.compile(
+        r'(?:^|\n)\s*(?:(?:\[|\d+\[|\[\d+\])\s*)?((?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+SCHEDULE)\b([^\n]*)',
+        re.MULTILINE
+    )
+    s_matches = list(sched_pattern.finditer(sched_zone))
+    
+    for i in range(len(s_matches)):
+        start_pos = s_matches[i].start()
+        end_pos = s_matches[i+1].start() if i + 1 < len(s_matches) else len(sched_zone)
+        s_name = s_matches[i].group(1).upper()
+        s_title_extra = s_matches[i].group(2).strip()
+        s_content = sched_zone[start_pos:end_pos].strip()
+        
+        if any(k in s_title_extra.lower() for k in ["to the", "of the", "specified in", "omitted by"]):
+            continue
+            
+        if s_name == "SEVENTH SCHEDULE":
+            list_pat = re.compile(r'(?:^|\n)\s*(List\s+[I|V|X]+[^\n]*)', re.IGNORECASE)
+            l_matches = list(list_pat.finditer(s_content))
+            if l_matches:
+                for li in range(len(l_matches)):
+                    l_start = l_matches[li].start()
+                    l_end = l_matches[li+1].start() if li + 1 < len(l_matches) else len(s_content)
+                    l_title = l_matches[li].group(1).strip()
+                    l_body = s_content[l_start:l_end].strip()
+                    
+                    s_meta = base_meta.copy()
+                    s_meta.update({
+                        "part": "SCHEDULES",
+                        "article": None,
+                        "parent_article": None,
+                        "clause": None,
+                        "sub_clause": None,
+                        "schedule": "SEVENTH SCHEDULE",
+                        "schedule_list": l_title,
+                        "primary_article": None,
+                        "articles": []
+                    })
+                    chunks.append({
+                        "id": str(uuid.uuid4()),
+                        "text": f"SEVENTH SCHEDULE — {l_title}\n\n{l_body}",
+                        "metadata": s_meta
+                    })
+                continue
+                
+        if len(s_content) > 3000:
+            paragraphs = s_content.split("\n\n")
+            curr_text = []
+            part_idx = 1
+            for p in paragraphs:
+                curr_text.append(p)
+                if sum(len(x) for x in curr_text) >= 2000:
+                    s_meta = base_meta.copy()
+                    s_meta.update({
+                        "part": "SCHEDULES",
+                        "article": None,
+                        "parent_article": None,
+                        "clause": None,
+                        "sub_clause": None,
+                        "schedule": s_name,
+                        "schedule_part": f"Part {part_idx}",
+                        "primary_article": None,
+                        "articles": []
+                    })
+                    chunks.append({
+                        "id": str(uuid.uuid4()),
+                        "text": f"{s_name} (Part {part_idx})\n\n" + "\n\n".join(curr_text),
+                        "metadata": s_meta
+                    })
+                    curr_text = []
+                    part_idx += 1
+            if curr_text:
+                s_meta = base_meta.copy()
+                s_meta.update({
+                    "part": "SCHEDULES",
+                    "article": None,
+                    "parent_article": None,
+                    "clause": None,
+                    "sub_clause": None,
+                    "schedule": s_name,
+                    "schedule_part": f"Part {part_idx}",
+                    "primary_article": None,
+                    "articles": []
+                })
+                chunks.append({
+                    "id": str(uuid.uuid4()),
+                    "text": f"{s_name} (Part {part_idx})\n\n" + "\n\n".join(curr_text),
+                    "metadata": s_meta
+                })
+        else:
+            s_meta = base_meta.copy()
+            s_meta.update({
+                "part": "SCHEDULES",
+                "article": None,
+                "parent_article": None,
+                "clause": None,
+                "sub_clause": None,
+                "schedule": s_name,
+                "primary_article": None,
+                "articles": []
+            })
+            chunks.append({
+                "id": str(uuid.uuid4()),
+                "text": f"{s_name}\n\n{s_content}",
+                "metadata": s_meta
+            })
+            
+    return chunks
+
 def parse_and_chunk_file(filepath: str, metadata_override: Dict[str, Any] = None) -> List[Dict[str, Any]]:
     """
     Parse a file (.txt, .md, .json) and return list of chunk dictionaries with metadata.
@@ -306,12 +558,27 @@ def parse_and_chunk_file(filepath: str, metadata_override: Dict[str, Any] = None
                     "metadata": meta
                 })
     else:
+        # Load companion metadata JSON if available
+        meta_json_path = os.path.splitext(filepath)[0] + ".meta.json"
+        if os.path.exists(meta_json_path):
+            try:
+                with open(meta_json_path, "r", encoding="utf-8") as mf:
+                    comp_meta = json.load(mf)
+                    base_metadata.update(comp_meta)
+            except Exception:
+                pass
+
         try:
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
             with open(filepath, "r", encoding="latin-1") as f:
                 content = f.read()
+
+        # Check if this is the complete Constitution of India
+        if base_metadata.get("doc_type") == "constitutional" or "constitution" in filename.lower():
+            if "PART I" in content or "PREAMBLE" in content:
+                return parse_constitution_hierarchy(content, base_metadata)
                 
         sub_chunks = chunk_text(content)
         for sc in sub_chunks:

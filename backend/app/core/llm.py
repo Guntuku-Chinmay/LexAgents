@@ -255,33 +255,44 @@ class EvidenceGroundedReasoner:
         cite_1 = f"[{primary_source['index']}]"
         cite_2 = f"[{sources[1]['index']}]" if len(sources) > 1 else cite_1
 
-        # Check substantive legal domains:
-        # A. Article 16 (Equality of opportunity in public employment)
-        if "16" in q_lower or "१६" in q_lower or "౧౬" in q_lower or "अवसर की समानता" in q_lower or "సమాన అవకాశాలు" in q_lower or any("article 16" in s["content"].lower() for s in sources):
-            art16_source = next((s for s in sources if "article 16" in s["content"].lower() or "equality of opportunity in matters of public employment" in s["content"].lower()), primary_source)
-            c_art = f"[{art16_source['index']}]"
-            if is_hindi:
-                answer_text = (
-                    f"भारतीय संविधान, 1950 का अनुच्छेद 16 सार्वजनिक रोजगार के मामलों में अवसर की समानता की गारंटी देता है {c_art}।\n\n"
-                    f"1. अवसर की समानता (खंड 1): राज्य के अधीन किसी भी पद पर नियोजन या नियुक्ति के मामलों में सभी नागरिकों के लिए समान अवसर होंगे {c_art}।\n"
-                    f"2. गैर-भेदभाव (खंड 2): केवल धर्म, मूलवंश, जाति, लिंग, उद्भव, जन्मस्थान, निवास या इनमें से किसी के आधार पर किसी भी नागरिक को राज्य के अधीन रोजगार के लिए अपात्र नहीं माना जाएगा और न ही उससे भेदभाव किया जाएगा {c_art}।\n"
-                    f"3. आरक्षण का अपवाद (खंड 4): राज्य को किसी भी पिछड़े वर्ग के नागरिकों के पक्ष में, जिनका राज्य की राय में राज्य की सेवाओं में पर्याप्त प्रतिनिधित्व नहीं है, नियुक्तियों या पदों के आरक्षण के लिए कोई प्रावधान करने की शक्ति प्राप्त है {c_art}।"
-                )
-            elif is_telugu:
-                answer_text = (
-                    f"భారత రాజ్యాంగం (Constitution of India, 1950) లోని ఆర్టికల్ 16 ప్రభుత్వ ఉద్యోగాలలో సమాన అవకాశాలను నిర్ధారిస్తుంది {c_art}।\n\n"
-                    f"1. సమాన అవకాశాలు (క్లాజ్ 1): ప్రభుత్వ కార్యాలయాలలో ఉద్యోగం లేదా నియామకాలకు సంబంధించి పౌరులందరికీ సమాన అవకాశాలు కల్పించబడతాయి {c_art}।\n"
-                    f"2. వివక్షత నిషేధం (క్లాజ్ 2): కేవలం మతం, జాతి, కులం, లింగం, సంతతి, జన్మస్థలం లేదా నివాసం ఆధారంగా ఏ పౌరుడిపై వివక్ష చూపరాదు {c_art}।\n"
-                    f"3. రిజర్వేషన్లు (క్లాజ్ 4): ప్రభుత్వ సర్వీసులలో తగినంత ప్రాతినిధ్యం లేని వెనుకబడిన వర్గాల పౌరులకు ఉద్యోగ నియామకాలలో రిజర్వేషన్లు కల్పించే అధికారం ప్రభుత్వానికి ఉంది {c_art}।"
-                )
+        # Check if primary source is Constitutional provision or Schedule
+        art_match = re.search(r'Article\s*(\d+[A-Z]?(?:\([0-9a-zA-Z]+\))*)', primary_source["content"], re.IGNORECASE)
+        sched_match = re.search(r'((?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+SCHEDULE(?:\s*—\s*[^\n]+)?)', primary_source["content"], re.IGNORECASE)
+        is_constitution_source = (
+            "constitution" in primary_source.get("source", "").lower() or 
+            bool(art_match) or 
+            bool(sched_match)
+        )
+
+        # A. Constitutional Provisions & Schedules (Dynamic Evidence-Grounded Synthesis)
+        if is_constitution_source and not any(w in q_lower for w in ["section 138", "138", "posh", "sexual harassment", "upsi", "sebi"]):
+            if art_match:
+                prov = f"Article {art_match.group(1)}"
+                body = re.sub(r'^Article\s*\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*\.?\s*', '', primary_source['content']).strip()
+                sentences = [s.strip() for s in re.split(r'(?<=[.;])\s+', body) if len(s.strip()) > 10]
+                summary_points = "\n".join([f"- {s} {cite_1}" for s in sentences[:4]]) if sentences else f"{body} {cite_1}"
+                
+                if is_hindi:
+                    answer_text = f"भारतीय संविधान, 1950 के {prov} के अनुसार {cite_1}:\n\n{summary_points}"
+                elif is_telugu:
+                    answer_text = f"భారత రాజ్యాంగం (Constitution of India, 1950) లోని {prov} ప్రకారం {cite_1}:\n\n{summary_points}"
+                else:
+                    answer_text = f"According to {prov} of the Constitution of India, 1950 {cite_1}:\n\n{summary_points}"
+            elif sched_match:
+                prov = sched_match.group(1)
+                body = re.sub(r'^(?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+SCHEDULE(?:\s*—\s*[^\n]+)?\s*', '', primary_source['content']).strip()
+                lines = [l.strip() for l in body.splitlines() if len(l.strip()) > 10]
+                summary_points = "\n".join([f"- {l} {cite_1}" for l in lines[:5]]) if lines else f"{body[:300]}... {cite_1}"
+                
+                if is_hindi:
+                    answer_text = f"भारतीय संविधान, 1950 की {prov} के अनुसार {cite_1}:\n\n{summary_points}"
+                elif is_telugu:
+                    answer_text = f"భారత రాజ్యాంగం (Constitution of India, 1950) లోని {prov} ప్రకారం {cite_1}:\n\n{summary_points}"
+                else:
+                    answer_text = f"According to the {prov} of the Constitution of India, 1950 {cite_1}:\n\n{summary_points}"
             else:
-                answer_text = (
-                    f"Article 16 of the Constitution of India, 1950 guarantees equality of opportunity for all citizens in matters relating to employment or appointment to any office under the State {c_art}.\n\n"
-                    f"Key Constitutional Provisions:\n"
-                    f"1. Equality in Public Employment (Clause 1): Guarantees equality of opportunity for all citizens in matters relating to employment or appointment to any office under the State {c_art}.\n"
-                    f"2. Prohibition of Discrimination (Clause 2): Explicitly provides that no citizen shall, on grounds only of religion, race, caste, sex, descent, place of birth, residence or any of them, be ineligible for, or discriminated against in respect of, any employment or office under the State {c_art}.\n"
-                    f"3. Enabling Provisions for Affirmative Action (Clause 4): Empowers the State to make provisions for the reservation of appointments or posts in favour of any backward class of citizens which, in the opinion of the State, is not adequately represented in the services under the State {c_art}."
-                )
+                snippets = [f"{s['source']}: {s['content'][:250]}... [{s['index']}]" for s in sources[:3]]
+                answer_text = f"According to the Constitution of India, 1950 {cite_1}:\n\n" + "\n\n".join(snippets)
 
         # B. Article 21 / Privacy / Liberty
         elif "21" in q_lower or "privacy" in q_lower or "surveillance" in q_lower:
@@ -474,9 +485,30 @@ class EvidenceGroundedReasoner:
         source_1 = sources[0]
         s1_content = source_1["content"].lower()
 
-        if "article 16" in s1_content or "public employment" in s1_content:
+        # Check for provision mismatch between requested query and retrieved evidence
+        q_art_m = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్)\s*(\d+[A-Za-z]*)', prompt, re.IGNORECASE)
+        s1_art_m = re.search(r'Article\s*(\d+[A-Za-z]*)', source_1["content"], re.IGNORECASE)
+        
+        if q_art_m and s1_art_m:
+            q_art = q_art_m.group(1).upper()
+            s1_art = s1_art_m.group(1).upper()
+            if q_art != s1_art:
+                results.append({
+                    "claim": f"Provision mismatch: Query requested Article {q_art} but retrieved evidence is Article {s1_art}.",
+                    "supported": False,
+                    "evidence_index": source_1["index"],
+                    "confidence": 0.0,
+                    "issues": [f"Provision mismatch: {q_art} vs {s1_art}"],
+                    "importance": "critical",
+                    "verification_status": "unsupported",
+                    "evidence_links": []
+                })
+                return {"verification_results": results}
+
+        if s1_art_m:
+            art_val = s1_art_m.group(1).upper()
             results.append({
-                "claim": "Article 16 guarantees equality of opportunity in public employment and prohibits discrimination based on religion, race, caste, sex, descent, place of birth, or residence.",
+                "claim": f"Article {art_val} of the Constitution of India guarantees and specifies the constitutional provisions as set forth in the authoritative text.",
                 "supported": True,
                 "evidence_index": source_1["index"],
                 "confidence": 0.98,
@@ -487,7 +519,7 @@ class EvidenceGroundedReasoner:
             })
             if len(sources) > 1:
                 results.append({
-                    "claim": "The State possesses enabling authority to make reservations in public employment for backward classes not adequately represented.",
+                    "claim": f"The legal proposition is corroborated by retrieved constitutional and statutory authority [{sources[1]['index']}].",
                     "supported": True,
                     "evidence_index": sources[1]["index"],
                     "confidence": 0.95,
@@ -496,7 +528,24 @@ class EvidenceGroundedReasoner:
                     "verification_status": "supported",
                     "evidence_links": [{"evidence_index": sources[1]["index"], "relationship": "supports"}]
                 })
-        elif "posh" in s1_content or "sexual harassment" in s1_content or "internal committee" in s1_content:
+            return {"verification_results": results}
+
+        sched_m = re.search(r'((?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+SCHEDULE)', source_1["content"], re.IGNORECASE)
+        if sched_m:
+            sched_name = sched_m.group(1).upper()
+            results.append({
+                "claim": f"The provisions of the {sched_name} of the Constitution of India govern the specified constitutional subject matter.",
+                "supported": True,
+                "evidence_index": source_1["index"],
+                "confidence": 0.98,
+                "issues": [],
+                "importance": "high",
+                "verification_status": "supported",
+                "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
+            })
+            return {"verification_results": results}
+
+        if "posh" in s1_content or "sexual harassment" in s1_content or "internal committee" in s1_content:
             results.append({
                 "claim": "The POSH Act 2013 provides statutory redressal including filing complaints within 3 months to the Internal Complaints Committee, interim transfer/leave relief, and compensation.",
                 "supported": True,

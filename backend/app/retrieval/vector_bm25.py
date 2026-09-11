@@ -12,18 +12,24 @@ logger = logging.getLogger(__name__)
 
 def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
     """
-    Extract exact legal identifiers (Article, Section, Regulation, Rule, Clause)
+    Extract exact legal identifiers (Article, Clause, Section, Regulation, Rule, Schedule)
     from natural language queries in English, Hindi, and Telugu.
     Filters out 4-digit statute years (e.g., Regulations, 2015) and prose words.
     """
     identifiers = {}
     
-    # 1. Articles (e.g. Article 21, Art. 16, अनुच्छेद 16, ఆర్టికల్ 21, నిబంధన 16)
-    art_match = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
+    # 1. Articles & Clauses (e.g. Article 21, Art. 16(4), Article 19(1)(a), अनुच्छेद 16, ఆర్టికల్ 21, నిబంధన 16, అధికరణ 16)
+    art_match = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన|అధికరణ)\s*([0-9]+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*)', query, re.IGNORECASE)
     if art_match:
         val = art_match.group(1).strip()
         if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
             identifiers["article"] = val
+            p_val = re.match(r'^(\d+[A-Za-z]*)', val)
+            if p_val:
+                identifiers["parent_article"] = p_val.group(1).upper()
+            c_val = re.search(r'\((\d+[A-Za-z]?)\)', val)
+            if c_val:
+                identifiers["clause"] = c_val.group(1)
         
     # 2. Sections (e.g. Section 138, Sec. 9, धारा 138, సెక్షన్ 138, విభాగం 9)
     sec_match = re.search(r'(?:Section|Sec\.|§|धारा|సెక్షన్|విభాగం)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
@@ -45,6 +51,30 @@ def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
         val = rule_match.group(1).strip()
         if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
             identifiers["rule"] = val
+
+    # 5. Schedules (e.g. First Schedule, 7th Schedule, Seventh Schedule, अनुसूची, షెడ్యూల్)
+    sched_patterns = {
+        "FIRST SCHEDULE": r'\b(?:First|1st|पहली|మొదటి)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "SECOND SCHEDULE": r'\b(?:Second|2nd|दूसरी|రెండవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "THIRD SCHEDULE": r'\b(?:Third|3rd|तीसरी|మూడవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "FOURTH SCHEDULE": r'\b(?:Fourth|4th|चौथी|నాల్గవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "FIFTH SCHEDULE": r'\b(?:Fifth|5th|पांचवीं|ఐదవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "SIXTH SCHEDULE": r'\b(?:Sixth|6th|छठी|ఆరవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "SEVENTH SCHEDULE": r'\b(?:Seventh|7th|सातवीं|ఏడవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "EIGHTH SCHEDULE": r'\b(?:Eighth|8th|आठवीं|ఎనిమిదవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "NINTH SCHEDULE": r'\b(?:Ninth|9th|नौवीं|తొమ్మిదవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "TENTH SCHEDULE": r'\b(?:Tenth|10th|दसवीं|పదవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "ELEVENTH SCHEDULE": r'\b(?:Eleventh|11th|ग्यारहवीं|పదకొండవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+        "TWELFTH SCHEDULE": r'\b(?:Twelfth|12th|बारहवीं|పన్నెండవ)\s+(?:Schedule|अनुसूची|షెడ్యూల్)\b',
+    }
+    for sched_name, pat in sched_patterns.items():
+        if re.search(pat, query, re.IGNORECASE):
+            identifiers["schedule"] = sched_name
+            break
+
+    # 6. Preamble (e.g. Preamble, प्रस्तावना, పీఠిక)
+    if re.search(r'\b(?:preamble|प्रस्तावना|పీఠిక)\b', query, re.IGNORECASE):
+        identifiers["preamble"] = True
         
     return identifiers
 
@@ -85,6 +115,7 @@ def expand_multilingual_legal_query(query: str) -> str:
         (r'విభాగం\s*(\d+)', r'Section \1'),
         (r'ఆర్టికల్\s*(\d+)', r'Article \1'),
         (r'నిబంధన\s*(\d+)', r'Article \1'),
+        (r'అధికరణ\s*(\d+)', r'Article \1'),
         (r'(?:పని ప్రదేశంలో లైంగిక వేధింపులు|లైంగిక వేధింపులు)', 'workplace sexual harassment POSH Act 2013 Vishaka Internal Complaints Committee remedies'),
         (r'(?:ఉపాధిలో సమాన అవకాశాలు|సమానత్వం)', 'Article 16 equality of opportunity in public employment'),
         (r'(?:ఎన్\.ఐ|నెగోషియబుల్ ఇన్‌స్ట్రుమెంట్స్)', 'Negotiable Instruments Act NI Act'),
@@ -331,7 +362,7 @@ class HybridRetriever:
 
         def tokenize(text: str) -> List[str]:
             tokens = text.lower().replace(".", " ").replace(",", " ").replace(";", " ").replace(":", " ").replace("(", " ").replace(")", " ").split()
-            return [t for t in tokens if t not in STOP_WORDS and len(t) > 1]
+            return [t for t in tokens if t not in STOP_WORDS and (len(t) > 1 or t.isalnum())]
 
         tokenized_corpus = [tokenize(c["text"]) for c in chunks]
         bm25 = BM25Okapi(tokenized_corpus)
@@ -352,25 +383,27 @@ class HybridRetriever:
 
     def search_hybrid(
         self,
-        collection_name: str,
-        query: str,
+        collection_name: str = "statutes",
+        query: str = "",
         limit: int = 5,
         metadata_filter: Optional[Dict[str, Any]] = None,
-        rrf_k: int = 60
+        rrf_k: int = 60,
+        collection: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Hybrid search combining dense Vector search and sparse BM25 search
         using Reciprocal Rank Fusion (RRF) with exact identifier boosting and relevance floor.
         """
-        candidate_limit = max(limit * 3, 15)
+        if collection:
+            if not query:
+                query = collection_name
+            collection_name = collection
+        candidate_limit = max(limit * 3, 20)
         expanded_query = expand_multilingual_legal_query(query)
         
         vector_res = self.search_vector(collection_name, expanded_query, limit=candidate_limit, metadata_filter=metadata_filter)
         bm25_res = self.search_bm25(collection_name, expanded_query, limit=candidate_limit, metadata_filter=metadata_filter)
         
-        if not vector_res and not bm25_res:
-            return []
-
         # Specific domain guardrails for queries where the Indian legal repository has no coverage
         q_lower = query.lower()
         if ("algorithmic" in q_lower or "colocation" in q_lower) and not any("algorithmic" in doc.get("text", "").lower() for doc in vector_res + bm25_res):
@@ -382,6 +415,33 @@ class HybridRetriever:
         query_idents = extract_identifiers_from_query(query)
         if not query_idents and expanded_query != query:
             query_idents = extract_identifiers_from_query(expanded_query)
+
+        # Ensure exact provision candidates are included in candidate pool if not already present
+        if query_idents:
+            exact_chunks = []
+            if "parent_article" in query_idents or "article" in query_idents:
+                target_art = query_idents.get("parent_article") or query_idents.get("article")
+                art_matches = self._get_all_chunks_filtered(collection_name, {"parent_article": str(target_art)})
+                if not art_matches:
+                    art_matches = self._get_all_chunks_filtered(collection_name, {"article": str(target_art)})
+                exact_chunks.extend(art_matches)
+            if "schedule" in query_idents:
+                target_sched = query_idents["schedule"]
+                sched_matches = self._get_all_chunks_filtered(collection_name, {"schedule": target_sched})
+                exact_chunks.extend(sched_matches)
+            if "preamble" in query_idents:
+                preamble_matches = self._get_all_chunks_filtered(collection_name, {"part": "PREAMBLE"})
+                exact_chunks.extend(preamble_matches)
+
+            existing_bm25_ids = {d["id"] for d in bm25_res}
+            for ec in exact_chunks:
+                if ec["id"] not in existing_bm25_ids:
+                    ec["score"] = 1.0  # baseline relevance score
+                    bm25_res.append(ec)
+                    existing_bm25_ids.add(ec["id"])
+
+        if not vector_res and not bm25_res:
+            return []
 
         # Extract substantive terms from query for domain relevance validation
         boilerplate = {
@@ -396,14 +456,27 @@ class HybridRetriever:
         ]
 
         def is_substantively_relevant(doc: Dict[str, Any]) -> bool:
-            # If document matches any exact query identifier (Article, Section, Regulation), it is relevant
+            # If document matches any exact query identifier (Preamble, Schedule, Article, Section, Regulation), it is relevant
             if query_idents:
                 doc_meta = doc.get("metadata", {})
-                for k, v in query_idents.items():
-                    doc_val = str(doc_meta.get(k, "")).strip()
-                    doc_vals = [str(x).strip() for x in doc_meta.get(f"{k}s", [])]
-                    if doc_val == str(v) or str(v) in doc_vals:
+                if "preamble" in query_idents:
+                    if doc_meta.get("part") == "PREAMBLE" or "PREAMBLE" in str(doc.get("text", "")).upper()[:200]:
                         return True
+                if "schedule" in query_idents:
+                    if doc_meta.get("schedule") == query_idents["schedule"]:
+                        return True
+                if "parent_article" in query_idents or "article" in query_idents:
+                    target_art = query_idents.get("parent_article") or query_idents.get("article")
+                    doc_art = str(doc_meta.get("parent_article") or doc_meta.get("article") or "").strip()
+                    if doc_art == str(target_art):
+                        return True
+                for k in ["section", "regulation", "rule"]:
+                    if k in query_idents:
+                        v = query_idents[k]
+                        doc_val = str(doc_meta.get(k, "")).strip()
+                        doc_vals = [str(x).strip() for x in doc_meta.get(f"{k}s", [])]
+                        if doc_val == str(v) or str(v) in doc_vals:
+                            return True
 
             # Otherwise, document must contain at least one substantive non-boilerplate query term
             if substantive_query_terms:
@@ -427,12 +500,20 @@ class HybridRetriever:
             has_ident_match = False
             if query_idents:
                 doc_meta = doc.get("metadata", {})
-                for k, v in query_idents.items():
-                    doc_val = str(doc_meta.get(k, ""))
-                    doc_vals = [str(x) for x in doc_meta.get(f"{k}s", [])]
-                    if doc_val == str(v) or str(v) in doc_vals:
+                if "schedule" in query_idents and doc_meta.get("schedule") == query_idents["schedule"]:
+                    has_ident_match = True
+                elif "parent_article" in query_idents or "article" in query_idents:
+                    target_art = query_idents.get("parent_article") or query_idents.get("article")
+                    doc_art = str(doc_meta.get("parent_article") or doc_meta.get("article") or "").strip()
+                    if doc_art == str(target_art):
                         has_ident_match = True
-                        break
+                else:
+                    for k, v in query_idents.items():
+                        doc_val = str(doc_meta.get(k, ""))
+                        doc_vals = [str(x) for x in doc_meta.get(f"{k}s", [])]
+                        if doc_val == str(v) or str(v) in doc_vals:
+                            has_ident_match = True
+                            break
             
             passes_vector_score = (v_score >= 0.20) if is_openai else True
             if (has_ident_match or bm_score > 0.0 or passes_vector_score) and is_substantively_relevant(doc):
@@ -462,17 +543,49 @@ class HybridRetriever:
             for doc_id, doc in doc_map.items():
                 doc_meta = doc.get("metadata", {})
                 boost = 0.0
-                for field, val in query_idents.items():
-                    doc_val = str(doc_meta.get(field, "")).strip()
-                    doc_vals = [str(x).strip() for x in doc_meta.get(f"{field}s", [])]
-                    
-                    if doc_val == str(val) or str(val) in doc_vals:
-                        # Exact provision match! Strong boost
-                        boost += 1.0
-                    elif doc_val and doc_val != str(val):
-                        # The query explicitly asked for one provision, but this chunk belongs to a DIFFERENT provision!
-                        # Penalize unrelated provisions (e.g., Article 21 when querying Article 16)
+                # Preamble handling
+                if "preamble" in query_idents:
+                    if doc_meta.get("part") == "PREAMBLE" or "PREAMBLE" in str(doc.get("text", "")).upper()[:200]:
+                        boost += 3.0
+                    elif doc_meta.get("source_type") == "constitution":
+                        boost -= 2.0
+
+                # Schedule handling
+                if "schedule" in query_idents:
+                    target_sched = query_idents["schedule"]
+                    if doc_meta.get("schedule") == target_sched:
+                        boost += 2.0
+                    elif doc_meta.get("schedule") and doc_meta.get("schedule") != target_sched:
+                        boost -= 1.0
+                    elif doc_meta.get("source_type") == "constitution":
                         boost -= 0.5
+                
+                # Article handling
+                if "article" in query_idents or "parent_article" in query_idents:
+                    target_art = query_idents.get("parent_article") or query_idents.get("article")
+                    doc_art = str(doc_meta.get("parent_article") or doc_meta.get("article") or "").strip()
+                    target_clause = query_idents.get("clause")
+                    doc_clause = str(doc_meta.get("clause") or "").strip()
+                    
+                    if doc_art == str(target_art):
+                        boost += 1.0
+                        if target_clause and doc_clause == str(target_clause):
+                            boost += 1.5
+                    elif doc_art and doc_art != str(target_art) and doc_meta.get("source_type") == "constitution":
+                        boost -= 1.5
+                    elif doc_meta.get("schedule"):
+                        boost -= 0.5
+
+                # Section & Regulation handling
+                for field in ["section", "regulation", "rule"]:
+                    if field in query_idents:
+                        target_val = query_idents[field]
+                        doc_val = str(doc_meta.get(field, "")).strip()
+                        doc_vals = [str(x).strip() for x in doc_meta.get(f"{field}s", [])]
+                        if doc_val == str(target_val) or str(target_val) in doc_vals:
+                            boost += 1.0
+                        elif doc_val and doc_val != str(target_val):
+                            boost -= 0.5
 
                 rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + boost
 
@@ -492,3 +605,8 @@ class HybridRetriever:
 
 # Global retriever instance
 retriever = HybridRetriever()
+hybrid_retriever = retriever
+
+def search_statutes(query: str, limit: int = 5, metadata_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Helper function to search the statutes collection directly."""
+    return retriever.search_hybrid(collection_name="statutes", query=query, limit=limit, metadata_filter=metadata_filter)
