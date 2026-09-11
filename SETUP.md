@@ -104,32 +104,76 @@ If you prefer to run services manually on your local system:
 
 ---
 
-## 5. Production Deployment Guide
+## 5. Production Deployment Guide (Render Backend + Vercel Frontend)
 
-### 1. Backend Deployment (FastAPI)
-The FastAPI backend can be deployed using the existing `backend/Dockerfile` to platform-as-a-service providers like **Render**, **Railway**, **Fly.io**, or **AWS ECS/Fargate**.
+### 1. Backend Deployment on Render
 
-#### Step-by-Step with Railway/Render:
-1. Connect your Github repository to the platform.
-2. Select `backend/Dockerfile` as the build context / build path.
-3. Configure the required environment variables:
-   - `OPENAI_API_KEY`: Your production OpenAI API key.
-   - `DATABASE_URL`: Connection string to your hosted PostgreSQL database.
-   - `QDRANT_URL` and `QDRANT_API_KEY`: Connection details for your hosted Qdrant vector database.
-   - `CORS_ORIGINS`: Set to your production frontend URL: `https://lex-agents.vercel.app` (or your custom Vercel domain).
-4. Set the start command or let the Dockerfile default CMD handle it (`python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`).
+The FastAPI backend is fully pre-configured for deployment on **Render** using either Render Blueprints (`render.yaml`) or a manual Web Service.
 
-### 2. Frontend Deployment (Vercel)
-The Next.js client is already configured for deployment under the `frontend/` subdirectory on Vercel.
+#### Option A: One-Click Deploy via Render Blueprint (Recommended)
+1. Log into your [Render Dashboard](https://dashboard.render.com/).
+2. Click **New +** and select **Blueprint**.
+3. Connect your GitHub repository `https://github.com/Guntuku-Chinmay/LexAgents.git`.
+4. Render automatically detects [`render.yaml`](render.yaml) and populates the build command, start command, and environment variables.
+5. Click **Apply**. The backend builds, automatically bootstraps the Indian legal corpus, and starts on port `10000` with public HTTPS!
 
-1. In your **Vercel Dashboard**, go to **Settings > General** and ensure the **Root Directory** is set to `frontend`.
-2. Go to **Settings > Environment Variables** and add `NEXT_PUBLIC_API_URL` pointing to your deployed FastAPI backend URL (e.g. `https://lex-agents-backend.up.railway.app`).
-3. Trigger a redeploy of your Vercel project to bundle the updated API url.
+#### Option B: Manual Web Service Creation on Render
+1. Click **New +** > **Web Service**.
+2. Select repository: `Guntuku-Chinmay/LexAgents`.
+3. Configure the following settings:
+   - **Name**: `lexagents-backend`
+   - **Region**: `Singapore` (or nearest region)
+   - **Branch**: `main`
+   - **Runtime**: `Python`
+   - **Build Command**: `pip install -r requirements.txt && python scripts/bootstrap_corpus.py`
+   - **Start Command**: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: `Free`
+4. Add the following **Environment Variables**:
+   | Variable | Value | Required / Notes |
+   | :--- | :--- | :--- |
+   | `LLM_PROVIDER` | `free_fallback` | Required for zero-cost operation |
+   | `OPENAI_API_KEY` | `mock-key-for-testing` | Optional (set real key only if using `LLM_PROVIDER=openai`) |
+   | `SQLITE_DB_PATH` | `backend/app/database/lexagents.db` | Local SQLite database path |
+   | `QDRANT_STORAGE_PATH` | `data/qdrant_db` | Local Qdrant embedded vector storage |
+   | `CORS_ORIGINS` | `https://*.vercel.app,http://localhost:3000` | Allowed origins (Vercel subdomains allowed automatically) |
+   | `WEB_SEARCH_ENABLED` | `true` | Enables DuckDuckGo legal research agent |
+   | `PYTHON_VERSION` | `3.11.9` | Python runtime version on Render |
 
-### 3. Verifying Connectivity
-Once both are deployed, check the following:
-- Verify the backend is up by visiting `https://<your-backend-domain>/health` in a browser. It should return `{"status": "healthy", "service": "LexAgents API"}`.
-- Open your Vercel deployment (`https://lex-agents.vercel.app`), enter a test query, and observe that research, verification, and reflection results populate correctly without producing "Failed to fetch" errors.
+---
+
+### 2. Frontend Deployment on Vercel
+
+The Next.js frontend is located in the `frontend/` directory and deploys cleanly to **Vercel**.
+
+#### Step-by-Step Vercel Setup:
+1. Log into [Vercel Dashboard](https://vercel.com/dashboard).
+2. Click **Add New...** > **Project** and import `Guntuku-Chinmay/LexAgents`.
+3. In **Configure Project**:
+   - **Framework Preset**: `Next.js`
+   - **Root Directory**: Click *Edit* and select `frontend` (CRITICAL)
+   - **Build Command**: `npm run build` (or leave default Next.js build)
+   - **Output Directory**: `.next`
+4. Expand **Environment Variables** and add:
+   | Variable | Value | Purpose |
+   | :--- | :--- | :--- |
+   | `NEXT_PUBLIC_API_URL` | `https://<your-render-backend-name>.onrender.com` | Points Next.js client to the deployed Render FastAPI backend |
+5. Click **Deploy**. Vercel will build and assign a production URL (e.g. `https://lex-agents.vercel.app` or `https://lexagents-*.vercel.app`).
+
+---
+
+### 3. Verifying Production Connectivity
+
+Once both Render and Vercel deployments are live:
+1. **Verify Backend Health**:
+   - Open `https://<your-backend>.onrender.com/health` $\rightarrow$ should return `{"status":"healthy","service":"LexAgents API"}`.
+   - Open `https://<your-backend>.onrender.com/` $\rightarrow$ should return service status and API docs link.
+2. **Verify Interactive Frontend**:
+   - Open the Vercel URL in Google Chrome or Microsoft Edge.
+   - Test an English query: *"Does the right to privacy under Article 21 extend to digital data protection?"*
+   - Test a Hindi query: *"परक्राम्य लिखत अधिनियम की धारा 138 के तहत चेक बाउंस नोटिस की समयसीमा क्या है?"*
+   - Test a Telugu query: *"చెక్ బౌన్స్ కేసులో సెక్షన్ 138 నిబంధనలు ఏమిటి?"*
+   - Test Speech-to-Text (STT) by clicking the microphone button and speaking.
+   - Test Text-to-Speech (TTS) by clicking the "Listen" button in the Synthesized Legal Opinion header.
 
 ---
 
