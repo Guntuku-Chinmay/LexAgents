@@ -11,30 +11,89 @@ from backend.app.core.llm import generate_embeddings
 logger = logging.getLogger(__name__)
 
 def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
-    """Helper to extract exact legal identifiers from a natural language query for query boosting."""
+    """Helper to extract exact legal identifiers from natural language queries (English, Hindi, Telugu) for query boosting."""
     identifiers = {}
     
-    # Articles (e.g. Article 21, Art. 21)
-    art_match = re.search(r'\b(?:Article|Art\.)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    # Articles (e.g. Article 21, Art. 21, अनुच्छेद 21, ఆర్టికల్ 21)
+    art_match = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
     if art_match:
         identifiers["article"] = art_match.group(1)
         
-    # Sections (e.g. Section 138, Section 420)
-    sec_match = re.search(r'\b(?:Section|Sec\.|§)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    # Sections (e.g. Section 138, Section 420, धारा 138, సెక్షన్ 138)
+    sec_match = re.search(r'(?:Section|Sec\.|§|धारा|సెక్షన్|విభాగం)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
     if sec_match:
         identifiers["section"] = sec_match.group(1)
         
-    # Regulations (e.g. Regulation 3, Reg 4)
-    reg_match = re.search(r'\b(?:Regulation|Reg\.|Reg)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    # Regulations (e.g. Regulation 3, Reg 4, विनियमन 3, రెగ్యులేషన్ 3)
+    reg_match = re.search(r'(?:Regulation|Reg\.|विनियमन|రెగ్యులేషన్)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
     if reg_match:
         identifiers["regulation"] = reg_match.group(1)
 
-    # Rules (e.g. Rule 4)
-    rule_match = re.search(r'\b(?:Rule)\s*([A-Za-z0-9\(\)]+)\b', query, re.IGNORECASE)
+    # Rules (e.g. Rule 4, नियम 4, రూల్ 4)
+    rule_match = re.search(r'(?:Rule|नियम|రూల్)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
     if rule_match:
         identifiers["rule"] = rule_match.group(1)
         
     return identifiers
+
+
+def expand_multilingual_legal_query(query: str) -> str:
+    """
+    Expand Hindi and Telugu legal queries with canonical English statutory/legal equivalents
+    so that sparse BM25 and dense vector search ground accurately against the English Indian legal corpus.
+    Preserves original query and appends matched canonical terms.
+    """
+    has_indic = any('\u0900' <= c <= '\u097F' or '\u0C00' <= c <= '\u0C7F' for c in query)
+    if not has_indic:
+        return query
+
+    expansions: List[str] = []
+
+    # Hindi legal mappings
+    hi_rules = [
+        (r'धारा\s*(\d+)', r'Section \1'),
+        (r'अनुच्छेद\s*(\d+)', r'Article \1'),
+        (r'(?:एनआई|एन\.आई\.|परक्राम्य लिखत)', 'Negotiable Instruments Act NI Act'),
+        (r'(?:चेक बाउंस|अनादर)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer'),
+        (r'(?:भारतीय दंड संहिता|आईपीसी)', 'Indian Penal Code IPC'),
+        (r'(?:सर्वोच्च न्यायालय|उच्चतम न्यायालय)', 'Supreme Court'),
+        (r'(?:निजता|गोपनीयता)', 'privacy surveillance fundamental right Article 21'),
+        (r'मौलिक अधिकार', 'fundamental rights Constitution of India'),
+        (r'जमानत', 'bail criminal procedure'),
+        (r'(?:किराया|पट्टा|पट्टेदार)', 'lease agreement notice eviction landlord tenant clause'),
+        (r'सेबी', 'SEBI insider trading UPSI'),
+        (r'आरबीआई', 'RBI circular digital lending regulations'),
+    ]
+
+    # Telugu legal mappings
+    te_rules = [
+        (r'సెక్షన్\s*(\d+)', r'Section \1'),
+        (r'విభాగం\s*(\d+)', r'Section \1'),
+        (r'ఆర్టికల్\s*(\d+)', r'Article \1'),
+        (r'నిబంధన\s*(\d+)', r'Article \1'),
+        (r'(?:ఎన్\.ఐ|నెగోషియబుల్ ఇన్‌స్ట్రుమెంట్స్)', 'Negotiable Instruments Act NI Act'),
+        (r'(?:చెక్ బౌన్స్|అనాదరణ)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer'),
+        (r'(?:ఐపీసీ|భారతీయ శిక్షా స్మృతి)', 'Indian Penal Code IPC'),
+        (r'సుప్రీం కోర్టు', 'Supreme Court'),
+        (r'(?:గోప్యత|గోప్యతా హక్కు)', 'privacy surveillance fundamental right Article 21'),
+        (r'ప్రాథమిక హక్కులు', 'fundamental rights Constitution of India'),
+        (r'బెయిల్', 'bail criminal procedure'),
+        (r'(?:అద్దె|లీజు)', 'lease agreement notice eviction landlord tenant clause'),
+        (r'సెబీ', 'SEBI insider trading UPSI'),
+        (r'ఆర్బీఐ', 'RBI circular digital lending regulations'),
+    ]
+
+    for pattern, replacement in hi_rules + te_rules:
+        if re.search(pattern, query, re.IGNORECASE):
+            if r'\1' in replacement:
+                expanded = re.sub(pattern, replacement, query)
+                expansions.append(expanded)
+            else:
+                expansions.append(replacement)
+
+    if expansions:
+        return f"{query} {' '.join(expansions)}"
+    return query
 
 class HybridRetriever:
     def __init__(self, storage_path: str = settings.QDRANT_STORAGE_PATH):
@@ -280,9 +339,10 @@ class HybridRetriever:
         using Reciprocal Rank Fusion (RRF) with exact identifier boosting.
         """
         candidate_limit = limit * 2
+        expanded_query = expand_multilingual_legal_query(query)
         
-        vector_res = self.search_vector(collection_name, query, limit=candidate_limit, metadata_filter=metadata_filter)
-        bm25_res = self.search_bm25(collection_name, query, limit=candidate_limit, metadata_filter=metadata_filter)
+        vector_res = self.search_vector(collection_name, expanded_query, limit=candidate_limit, metadata_filter=metadata_filter)
+        bm25_res = self.search_bm25(collection_name, expanded_query, limit=candidate_limit, metadata_filter=metadata_filter)
         
         if not vector_res and not bm25_res:
             return []
@@ -305,8 +365,10 @@ class HybridRetriever:
             doc_map[doc_id] = doc
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 1.0 / (rank + rrf_k)
 
-        # Exact identifier boosting
+        # Exact identifier boosting (checks both original Indic query and expanded statutory terms)
         query_idents = extract_identifiers_from_query(query)
+        if not query_idents and expanded_query != query:
+            query_idents = extract_identifiers_from_query(expanded_query)
         if query_idents:
             for doc_id, doc in doc_map.items():
                 doc_meta = doc.get("metadata", {})

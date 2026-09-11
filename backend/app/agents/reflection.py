@@ -138,14 +138,22 @@ class Orchestrator:
         self.verification = verification_agent
         self.reflection = reflection_agent
 
-    def run_research(self, query: str, session_id: Optional[str] = None, use_web: bool = True, max_iterations: int = 3) -> ResearchResponse:
+    def run_research(self, query: str, session_id: Optional[str] = None, use_web: bool = True, max_iterations: int = 3, language: str = "en") -> ResearchResponse:
         """
         Execute the complete multi-agent collaborative RAG loop.
+        Supports multilingual queries and synthesis (English, Hindi, Telugu).
         """
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        logger.info(f"Starting research session {session_id} for query: '{query}'")
+        # Auto-detect Indic script if language parameter is default "en"
+        if language == "en":
+            if any("\u0900" <= c <= "\u097F" for c in query):
+                language = "hi"
+            elif any("\u0C00" <= c <= "\u0C7F" for c in query):
+                language = "te"
+
+        logger.info(f"Starting research session {session_id} for query: '{query}' [language={language}]")
         
         # Initialize DB record
         db.create_session(session_id, query)
@@ -232,7 +240,7 @@ class Orchestrator:
             # Step 3: Synthesis
             # Always synthesize with all aggregated unique evidence collected so far
             current_evidence_pool = list(collected_evidence.values())
-            synthesis_res = self.synthesis.synthesize(query, current_evidence_pool)
+            synthesis_res = self.synthesis.synthesize(query, current_evidence_pool, language=language)
             draft_answer = synthesis_res["answer"]
             conflicts = synthesis_res["conflicts"]
 
@@ -287,7 +295,8 @@ class Orchestrator:
             citations=final_citations,
             verification_results=ver_results,
             iterations=iteration,
-            trace=trace
+            trace=trace,
+            language=language
         )
         return response
 

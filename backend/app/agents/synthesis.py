@@ -7,10 +7,11 @@ from backend.app.models.schemas import Evidence
 logger = logging.getLogger(__name__)
 
 class SynthesisAgent:
-    def synthesize(self, query: str, evidence: List[Evidence]) -> Dict[str, Any]:
+    def synthesize(self, query: str, evidence: List[Evidence], language: str = "en") -> Dict[str, Any]:
         """
         Synthesize retrieved evidence into a cohesive legal research answer.
         Identifies conflicts and aligns citations.
+        Supports English, Hindi, and Telugu output with citation preservation.
         """
         if not evidence:
             return {
@@ -31,6 +32,22 @@ class SynthesisAgent:
             )
         evidence_context = "\n".join(evidence_summary)
 
+        lang_instruction = ""
+        if language == "hi":
+            lang_instruction = (
+                "\n7. Target Language: Hindi (हिन्दी). Draft your legal opinion in formal, professional Hindi. "
+                "CRITICAL MANDATE: You MUST preserve all authentic Indian legal citations, Act names, section numbers, "
+                "case titles (e.g. 'Negotiable Instruments Act, 1881 की Section 138', 'Dalmia Cement v. Galaxy Traders (2001)'), "
+                "and inline evidence citation numbers [1], [2] exactly as referenced in the sources."
+            )
+        elif language == "te":
+            lang_instruction = (
+                "\n7. Target Language: Telugu (తెలుగు). Draft your legal opinion in formal, professional Telugu. "
+                "CRITICAL MANDATE: You MUST preserve all authentic Indian legal citations, Act names, section numbers, "
+                "case titles (e.g. 'Negotiable Instruments Act, 1881 లోని Section 138', 'Dalmia Cement v. Galaxy Traders (2001)'), "
+                "and inline evidence citation numbers [1], [2] exactly as referenced in the sources."
+            )
+
         system_prompt = f"""You are the Synthesis Agent for LexAgents. Your job is to draft a research-grade, objective legal research report answering the user's query based ONLY on the provided evidence.
 
 Available Evidence:
@@ -42,7 +59,7 @@ Instructions:
 3. Distinguish clearly between statutory codes (legislative rules) and case law (judicial interpretations/precedents).
 4. Identify any contradictions, conflicts, or tensions between the sources (for example, if a private lease agreement states a notice timeline of 60 days, but Section 138 of the Negotiable Instruments Act mandates 30 days).
 5. If there is insufficient evidence to answer a part of the query, explicitly state that the evidence is lacking for that claim. Do not invent any case law, citations, or facts.
-6. Clearly communicate uncertainty where the law is ambiguous or evidence is conflicting.
+6. Clearly communicate uncertainty where the law is ambiguous or evidence is conflicting.{lang_instruction}
 
 Your output MUST be a JSON object with this structure:
 {{

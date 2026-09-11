@@ -84,8 +84,11 @@ class EvidenceGroundedReasoner:
         q_lower = query.lower()
         tasks = []
 
-        # 1. Constitutional Law (Fundamental rights, Art 21, 19, 14, privacy, amendments, संविधान, निजता, గోప్యత, హక్కు)
-        if any(w in q_lower for w in ["privacy", "article 21", "art 21", "article 19", "article 14", "constitution", "fundamental right", "संविधान", "निजता", "गोप्यత", "హక్కు", "surveillance"]):
+        # 1. Constitutional Law (Fundamental rights, Art 21, 19, 14, privacy, amendments, संविधान, निजता, गोప్యత, హక్కు)
+        if any(w in q_lower for w in [
+            "privacy", "article 21", "art 21", "article 19", "article 14", "constitution", "fundamental right",
+            "संविधान", "निजता", "गोपनीयता", "मौलिक अधिकार", "अनुच्छेद", "गोప్యత", "హక్కు", "ప్రాథమిక", "ఆర్టికల్", "surveillance"
+        ]):
             tasks.append({
                 "query": "Article 21 privacy fundamental rights procedure established by law",
                 "agent": "constitutional",
@@ -98,7 +101,10 @@ class EvidenceGroundedReasoner:
             })
 
         # 2. Negotiable Instruments / Cheque Bounce / Commercial (Section 138, NI Act, dishonour, cheque, चेक, చెక్)
-        if any(w in q_lower for w in ["section 138", "138", "negotiable instruments", "cheque bounce", "dishonour", "unpaid cheque", "चेक", "చెక్", "నోటీసు", "notice period"]):
+        if any(w in q_lower for w in [
+            "section 138", "138", "negotiable instruments", "cheque bounce", "dishonour", "unpaid cheque",
+            "चेक", "चेक", "నోటీసు", "notice period", "धारा 138", "धारा", "సెక్షన్ 138", "సెక్షన్", "ఎన్.ఐ", "एनआई", "अनादर"
+        ]):
             tasks.append({
                 "query": "Section 138 Negotiable Instruments Act 1881 notice period 30 days dishonour",
                 "agent": "statute",
@@ -111,7 +117,10 @@ class EvidenceGroundedReasoner:
             })
 
         # 3. Regulatory / Securities / Banking (SEBI, RBI, insider trading, UPSI, digital lending, circulars)
-        if any(w in q_lower for w in ["sebi", "insider trading", "upsi", "regulation 3", "regulation 4", "rbi", "digital lending", "circular", "notification", "सेबी", "ఆర్బీఐ"]):
+        if any(w in q_lower for w in [
+            "sebi", "insider trading", "upsi", "regulation 3", "regulation 4", "rbi", "digital lending",
+            "circular", "notification", "सेबी", "आरबीआई", "ఆర్బీఐ", "వినియంత్రణ"
+        ]):
             tasks.append({
                 "query": "SEBI Prohibition of Insider Trading Regulations 2015 Regulation 3 4 UPSI",
                 "agent": "regulatory",
@@ -119,7 +128,10 @@ class EvidenceGroundedReasoner:
             })
 
         # 4. User Contract / Lease Agreement
-        if any(w in q_lower for w in ["lease", "agreement", "contract", "rajesh kumar", "landlord", "clause", "किराया", "అద్దె"]):
+        if any(w in q_lower for w in [
+            "lease", "agreement", "contract", "rajesh kumar", "landlord", "clause",
+            "किराया", "अద్దె", "ఒప్పందం", "पट्टा", "अनुबंध", "ఎగ్రిమెంట్"
+        ]):
             tasks.append({
                 "query": "lease agreement cheque bounce notice clause landlord eviction",
                 "agent": "legal_document",
@@ -233,10 +245,21 @@ class EvidenceGroundedReasoner:
         else:
             # General evidence-grounded summary from retrieved text
             snippets = [f"{s['source']}: {s['content'][:140]}... [{s['index']}]" for s in sources[:3]]
-            answer_text = (
-                f"Based on retrieved Indian legal authorities, the following principles apply to the query:\n\n"
-                + "\n\n".join(snippets)
-            )
+            if is_hindi:
+                answer_text = (
+                    f"पुनर्प्राप्त भारतीय कानूनी प्राधिकारियों के आधार पर, निम्नलिखित कानूनी सिद्धांत लागू होते हैं:\n\n"
+                    + "\n\n".join(snippets)
+                )
+            elif is_telugu:
+                answer_text = (
+                    f"సేకరించిన భారతీయ చట్టపరమైన ఆధారాల ఆధారంగా, ఈ క్రింది సూత్రాలు వర్తిస్తాయి:\n\n"
+                    + "\n\n".join(snippets)
+                )
+            else:
+                answer_text = (
+                    f"Based on retrieved Indian legal authorities, the following principles apply to the query:\n\n"
+                    + "\n\n".join(snippets)
+                )
 
         return {"answer": answer_text, "conflicts": conflicts}
 

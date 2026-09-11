@@ -5,6 +5,8 @@ class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
     use_web: bool = True
+    language: Optional[str] = "en"
+
 
 class Evidence(BaseModel):
     id: str
@@ -50,6 +52,8 @@ class ResearchResponse(BaseModel):
     verification_results: List[VerificationResult]
     iterations: int
     trace: List[ResearchTraceStep] = Field(default_factory=list)
+    language: Optional[str] = "en"
+
 
 class EvaluationRunResult(BaseModel):
     eval_id: str

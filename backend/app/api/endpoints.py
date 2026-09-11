@@ -36,7 +36,8 @@ def conduct_research(request: QueryRequest):
             query=request.query,
             session_id=request.session_id,
             use_web=request.use_web,
-            max_iterations=3
+            max_iterations=3,
+            language=request.language or "en"
         )
         return response
     except Exception as e:
