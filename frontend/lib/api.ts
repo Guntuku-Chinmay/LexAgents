@@ -17,12 +17,13 @@ function getApiBase(): string {
 export async function conductResearch(
   query: string,
   sessionId?: string,
-  useWeb: boolean = true
+  useWeb: boolean = true,
+  language: string = "en"
 ): Promise<ResearchResponse> {
   const response = await fetch(`${getApiBase()}/api/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, session_id: sessionId, use_web: useWeb }),
+    body: JSON.stringify({ query, session_id: sessionId, use_web: useWeb, language }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: "Unknown error" }));

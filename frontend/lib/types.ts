@@ -36,6 +36,7 @@ export interface ResearchResponse {
   verification_results: VerificationResult[];
   iterations: number;
   trace: ResearchTraceStep[];
+  language?: string;
 }
 
 export interface EvaluationRunResult {
