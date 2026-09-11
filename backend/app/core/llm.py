@@ -255,6 +255,18 @@ class EvidenceGroundedReasoner:
         cite_1 = f"[{primary_source['index']}]"
         cite_2 = f"[{sources[1]['index']}]" if len(sources) > 1 else cite_1
 
+        # Motor Vehicle Law guardrail: if query is about motor vehicles/accidents and no motor vehicle source is present
+        is_motor_vehicle_q = any(w in q_lower for w in ["car", "vehicle", "traffic", "accident", "electric pole", "cow came", "dashed", "licence", "driving"])
+        has_mv_source = any(w in (s["content"] + " " + s["source"]).lower() for s in sources for w in ["motor vehicle", "traffic", "accident", "licence", "driving", "mact"])
+        if is_motor_vehicle_q and not has_mv_source:
+            if is_hindi:
+                ans = "उपलब्ध भारतीय कानूनी भंडार के आधार पर, मोटर वाहन दुर्घटना या यातायात दायित्व से संबंधित इस प्रश्न का मूल्यांकन करने के लिए अपर्याप्त प्रामाणिक साक्ष्य हैं। वर्तमान भंडार में मोटर वाहन अधिनियम, 1988 या संबंधित न्यायिक निर्णय शामिल नहीं हैं।"
+            elif is_telugu:
+                ans = "భారతీయ చట్టపరమైన ఆధారాల ప్రకారం, మోటారు వాహన ప్రమాదం లేదా ట్రాఫిక్ బాధ్యతకు సంబంధించిన ఈ ప్రశ్నకు సమాధానం ఇవ్వడానికి తగిన ఆధారాలు లేవు. ప్రస్తుత సమాచార నిధిలో మోటారు వాహనాల చట్టం, 1988 నిబంధనలు అందుబాటులో లేవు."
+            else:
+                ans = "Based on the Indian legal repository, there is insufficient authoritative evidence available to evaluate this motor vehicle accident query. The repository does not currently contain statutory provisions under the Motor Vehicles Act, 1988 or judicial precedents on traffic accidents and unavoidable events."
+            return {"answer": ans, "conflicts": []}
+
         # Check if primary source is Constitutional provision or Schedule
         art_match = re.search(r'Article\s*(\d+[A-Z]?(?:\([0-9a-zA-Z]+\))*)', primary_source["content"], re.IGNORECASE)
         sched_match = re.search(r'((?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+SCHEDULE(?:\s*—\s*[^\n]+)?)', primary_source["content"], re.IGNORECASE)
@@ -263,6 +275,12 @@ class EvidenceGroundedReasoner:
             bool(art_match) or 
             bool(sched_match)
         )
+
+        # Constitutional relevance check: If source is constitutional but query is non-constitutional (e.g. car, lease, cyber), refuse to misapply
+        is_constitutional_query = any(w in q_lower for w in ["constitution", "article", "preamble", "fundamental right", "amendment", "schedule", "writ", "संविधान", "अनुच्छेद", "రాజ్యాంగం", "ఆర్టికల్", "privacy", "equality", "discrimination", "liberty", "speech"])
+        if is_constitution_source and not is_constitutional_query:
+            ans = "Based on the Indian legal repository, there is insufficient authoritative evidence available to evaluate this query. The retrieved constitutional provisions are inapplicable to the queried non-constitutional subject matter."
+            return {"answer": ans, "conflicts": []}
 
         # A. Constitutional Provisions & Schedules (Dynamic Evidence-Grounded Synthesis)
         if is_constitution_source and not any(w in q_lower for w in ["section 138", "138", "posh", "sexual harassment", "upsi", "sebi"]):
@@ -485,6 +503,22 @@ class EvidenceGroundedReasoner:
         source_1 = sources[0]
         s1_content = source_1["content"].lower()
 
+        # Domain alignment check: Motor vehicle queries cannot be verified against constitutional articles
+        p_lower = prompt.lower()
+        is_mv_prompt = any(w in p_lower for w in ["car", "vehicle", "traffic", "accident", "electric pole", "cow came", "dashed"])
+        if is_mv_prompt and (s1_art_m or "constitution" in source_1.get("source", "").lower()):
+            results.append({
+                "claim": "Constitutional provisions cited for motor vehicle accident query",
+                "supported": False,
+                "evidence_index": source_1["index"],
+                "confidence": 0.0,
+                "issues": ["Domain Mismatch: Motor Vehicle Law query cannot be supported by Constitutional articles."],
+                "importance": "high",
+                "verification_status": "unsupported",
+                "evidence_links": []
+            })
+            return {"verification_results": results}
+
         # Check for provision mismatch between requested query and retrieved evidence
         q_art_m = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్)\s*(\d+[A-Za-z]*)', prompt, re.IGNORECASE)
         s1_art_m = re.search(r'Article\s*(\d+[A-Za-z]*)', source_1["content"], re.IGNORECASE)
@@ -505,13 +539,28 @@ class EvidenceGroundedReasoner:
                 })
                 return {"verification_results": results}
 
+        # If evidence is a constitutional article, ensure the prompt is actually a constitutional query
+        is_const_prompt = any(w in p_lower for w in ["constitution", "article", "preamble", "fundamental right", "amendment", "schedule", "writ", "privacy", "equality", "discrimination", "liberty", "speech"])
         if s1_art_m:
             art_val = s1_art_m.group(1).upper()
+            if not is_const_prompt and not q_art_m:
+                results.append({
+                    "claim": f"Retrieved Article {art_val} is inapplicable to the user's non-constitutional query.",
+                    "supported": False,
+                    "evidence_index": source_1["index"],
+                    "confidence": 0.0,
+                    "issues": [f"Irrelevant authority: Article {art_val} has no bearing on queried subject."],
+                    "importance": "high",
+                    "verification_status": "unsupported",
+                    "evidence_links": []
+                })
+                return {"verification_results": results}
+
             results.append({
                 "claim": f"Article {art_val} of the Constitution of India guarantees and specifies the constitutional provisions as set forth in the authoritative text.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.98,
+                "confidence": 0.95,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",

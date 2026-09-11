@@ -1,3 +1,4 @@
+import os
 import uuid
 import re
 import logging
@@ -142,6 +143,8 @@ def expand_multilingual_legal_query(query: str) -> str:
         return f"{query} {' '.join(expansions)}"
     return query
 
+_shared_qdrant_clients: Dict[str, QdrantClient] = {}
+
 class HybridRetriever:
     def __init__(self, storage_path: str = settings.QDRANT_STORAGE_PATH):
         if settings.QDRANT_URL:
@@ -151,8 +154,11 @@ class HybridRetriever:
                 api_key=settings.QDRANT_API_KEY
             )
         else:
-            logger.info(f"Connecting to local Qdrant storage at: {storage_path}")
-            self.client = QdrantClient(path=storage_path)
+            abs_path = os.path.abspath(storage_path)
+            if abs_path not in _shared_qdrant_clients:
+                logger.info(f"Connecting to local Qdrant storage at: {storage_path}")
+                _shared_qdrant_clients[abs_path] = QdrantClient(path=storage_path)
+            self.client = _shared_qdrant_clients[abs_path]
 
     def init_collection(self, collection_name: str, vector_size: int = 1536):
         """Initialize collection in Qdrant if it doesn't exist."""
@@ -410,6 +416,9 @@ class HybridRetriever:
             return []
         if "companies act" in q_lower and not any("companies act" in (doc.get("text", "") + " " + str(doc.get("metadata", {}))).lower() for doc in vector_res + bm25_res):
             return []
+        # Motor vehicle and traffic collision queries must never retrieve constitutional articles
+        if any(w in q_lower for w in ["car", "vehicle", "traffic", "accident", "electric pole", "cow came", "dashed", "driving licence", "licence"]) and not any(w in doc.get("text", "").lower() for doc in vector_res + bm25_res for w in ["motor vehicle", "vehicle", "traffic", "driving licence", "mact"]):
+            return []
 
         # Extract exact query identifiers
         query_idents = extract_identifiers_from_query(query)
@@ -538,7 +547,21 @@ class HybridRetriever:
             doc_map[doc_id] = doc
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 1.0 / (rank + rrf_k)
 
-        # Exact identifier boosting and provision conflict penalty
+        # Authoritative Source Priority Ranking
+        for doc_id, doc in doc_map.items():
+            doc_meta = doc.get("metadata", {})
+            auth = doc_meta.get("authority_level")
+            doc_type = doc_meta.get("doc_type")
+            if auth == "TIER 1" or doc_type in ("constitutional", "constitutional_amendment"):
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 0.40
+            elif auth == "TIER 2" or doc_type in ("central_act", "sc_judgment", "hc_judgment"):
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 0.30
+            elif auth == "TIER 3" or doc_type in ("rules", "regulation", "government_circular", "government_notification"):
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 0.20
+            elif auth == "TIER 4" or doc_type in ("user_upload", "external_source"):
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 0.00
+
+        # Exact identifier boosting and strict provision isolation
         if query_idents:
             for doc_id, doc in doc_map.items():
                 doc_meta = doc.get("metadata", {})
@@ -548,7 +571,7 @@ class HybridRetriever:
                     if doc_meta.get("part") == "PREAMBLE" or "PREAMBLE" in str(doc.get("text", "")).upper()[:200]:
                         boost += 3.0
                     elif doc_meta.get("source_type") == "constitution":
-                        boost -= 2.0
+                        boost -= 3.0
 
                 # Schedule handling
                 if "schedule" in query_idents:
@@ -556,9 +579,9 @@ class HybridRetriever:
                     if doc_meta.get("schedule") == target_sched:
                         boost += 2.0
                     elif doc_meta.get("schedule") and doc_meta.get("schedule") != target_sched:
-                        boost -= 1.0
+                        boost -= 2.0
                     elif doc_meta.get("source_type") == "constitution":
-                        boost -= 0.5
+                        boost -= 1.0
                 
                 # Article handling
                 if "article" in query_idents or "parent_article" in query_idents:
@@ -568,13 +591,14 @@ class HybridRetriever:
                     doc_clause = str(doc_meta.get("clause") or "").strip()
                     
                     if doc_art == str(target_art):
-                        boost += 1.0
+                        boost += 2.0
                         if target_clause and doc_clause == str(target_clause):
-                            boost += 1.5
-                    elif doc_art and doc_art != str(target_art) and doc_meta.get("source_type") == "constitution":
-                        boost -= 1.5
+                            boost += 2.5
+                    elif doc_art and doc_art != str(target_art):
+                        # Strict isolation: Penalize mismatched article heavily to prevent cross-article contamination
+                        boost -= 5.0
                     elif doc_meta.get("schedule"):
-                        boost -= 0.5
+                        boost -= 1.0
 
                 # Section & Regulation handling
                 for field in ["section", "regulation", "rule"]:
@@ -583,9 +607,9 @@ class HybridRetriever:
                         doc_val = str(doc_meta.get(field, "")).strip()
                         doc_vals = [str(x).strip() for x in doc_meta.get(f"{field}s", [])]
                         if doc_val == str(target_val) or str(target_val) in doc_vals:
-                            boost += 1.0
+                            boost += 2.0
                         elif doc_val and doc_val != str(target_val):
-                            boost -= 0.5
+                            boost -= 3.0
 
                 rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + boost
 

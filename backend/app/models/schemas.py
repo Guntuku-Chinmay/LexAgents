@@ -8,6 +8,24 @@ class QueryRequest(BaseModel):
     language: Optional[str] = "en"
 
 
+class QueryAnalysis(BaseModel):
+    original_query: str
+    normalized_query: str
+    query_type: str  # "explicit_reference" | "fact_pattern" | "conceptual_inquiry"
+    primary_domain: str
+    secondary_domains: List[str] = Field(default_factory=list)
+    sub_domains: List[str] = Field(default_factory=list)
+    legal_intents: List[str] = Field(default_factory=list)
+    facts: List[str] = Field(default_factory=list)
+    legal_issues: List[str] = Field(default_factory=list)
+    requested_outcome: Optional[str] = None
+    source_types: List[str] = Field(default_factory=list)
+    explicit_identifiers: Dict[str, Any] = Field(default_factory=dict)
+    named_entities: List[str] = Field(default_factory=list)
+    jurisdiction: str = "India"
+    language: str = "en"
+    confidence: str = "high"  # "high" | "medium" | "low"
+
 class Evidence(BaseModel):
     id: str
     text: str
@@ -19,6 +37,12 @@ class Evidence(BaseModel):
     authority_level: Optional[str] = "TIER 4"
     retrieval_method: Optional[str] = "hybrid"
     url: Optional[str] = None
+    domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    legal_identifier: Optional[str] = None
+    relationship_to_query: Optional[str] = "relevant"
+    relevance_status: Optional[str] = "accepted"  # "accepted" | "rejected"
+    content: Optional[str] = None
 
 class TaskDecomposition(BaseModel):
     query: str

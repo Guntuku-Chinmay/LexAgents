@@ -19,6 +19,8 @@ from backend.app.agents.legal_document import legal_document_agent
 from backend.app.agents.web_research import web_research_agent
 from backend.app.agents.synthesis import synthesis_agent
 from backend.app.agents.verification import verification_agent
+from backend.app.retrieval.query_analyzer import analyze_query
+from backend.app.retrieval.relevance_gate import filter_evidence_through_gate
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +170,10 @@ class Orchestrator:
             db.add_log(session_id, step_name, "trace", payload)
             trace.append(ResearchTraceStep(step_name=step_name, timestamp=timestamp, payload=payload))
 
+        # Run deep query analysis
+        query_analysis = analyze_query(query)
+        add_trace_step("Query Analysis & Domain Routing", query_analysis.model_dump())
+
         # Get uploaded custom documents to pass to Coordinator
         uploaded_docs = db.get_documents(doc_type="user_upload")
 
@@ -215,32 +221,46 @@ class Orchestrator:
                 
                 for ev in results:
                     iteration_evidence.append(ev)
-                    if ev.id not in collected_evidence:
+
+            # Step 2b: Relevance Gating
+            accepted_evidence, rejected_candidates = filter_evidence_through_gate(
+                [{"id": ev.id, "text": ev.text, "metadata": {**(ev.metadata or {}), "doc_type": ev.doc_type, "title": ev.source, "authority_level": ev.authority_level}} for ev in iteration_evidence],
+                query_analysis
+            )
+
+            add_trace_step(f"Relevance Gating (Iteration {iteration})", {
+                "retrieved_count": len(iteration_evidence),
+                "accepted_count": len(accepted_evidence),
+                "rejected_count": len(rejected_candidates),
+                "rejected_candidates": rejected_candidates
+            })
+
+            for ev in accepted_evidence:
+                if ev.id not in collected_evidence:
+                    collected_evidence[ev.id] = ev
+                    new_evidence_count += 1
+                else:
+                    existing = collected_evidence[ev.id]
+                    methods = set((existing.retrieval_method or "").split(","))
+                    methods.add(ev.retrieval_method or "hybrid")
+                    merged_method = ",".join(sorted(list(methods)))
+                    if ev.score > existing.score:
+                        ev.retrieval_method = merged_method
                         collected_evidence[ev.id] = ev
-                        new_evidence_count += 1
                     else:
-                        # Deduplicate: preserve highest score and log all retrieval methods
-                        existing = collected_evidence[ev.id]
-                        methods = set((existing.retrieval_method or "").split(","))
-                        methods.add(ev.retrieval_method or "hybrid")
-                        merged_method = ",".join(sorted(list(methods)))
-                        
-                        if ev.score > existing.score:
-                            ev.retrieval_method = merged_method
-                            collected_evidence[ev.id] = ev
-                        else:
-                            existing.retrieval_method = merged_method
+                        existing.retrieval_method = merged_method
 
             add_trace_step(f"Retrieval (Iteration {iteration})", {
                 "retrieved_count": len(iteration_evidence),
+                "accepted_count": len(accepted_evidence),
                 "new_unique_evidence": new_evidence_count,
-                "evidence_list": [ev.model_dump() for ev in iteration_evidence]
+                "evidence_list": [ev.model_dump() for ev in accepted_evidence]
             })
 
             # Step 3: Synthesis
-            # Always synthesize with all aggregated unique evidence collected so far
+            # Always synthesize with all aggregated unique accepted evidence collected so far
             current_evidence_pool = list(collected_evidence.values())
-            synthesis_res = self.synthesis.synthesize(query, current_evidence_pool, language=language)
+            synthesis_res = self.synthesis.synthesize(query, current_evidence_pool, language=language, query_analysis=query_analysis)
             draft_answer = synthesis_res["answer"]
             conflicts = synthesis_res["conflicts"]
 
@@ -250,7 +270,7 @@ class Orchestrator:
             })
 
             # Step 4: Verification
-            ver_results = self.verification.verify(draft_answer, current_evidence_pool)
+            ver_results = self.verification.verify(draft_answer, current_evidence_pool, query=query, query_analysis=query_analysis)
             
             add_trace_step(f"Verification (Iteration {iteration})", {
                 "verification_results": [v.model_dump() for v in ver_results]

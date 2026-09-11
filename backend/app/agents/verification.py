@@ -2,18 +2,46 @@ import json
 import re
 import uuid
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from backend.app.core.llm import generate_chat_completion
-from backend.app.models.schemas import Evidence, VerificationResult
+from backend.app.models.schemas import Evidence, VerificationResult, QueryAnalysis
 
 logger = logging.getLogger(__name__)
 
 class VerificationAgent:
-    def verify(self, answer: str, evidence: List[Evidence]) -> List[VerificationResult]:
+    def verify(
+        self,
+        answer: str,
+        evidence: List[Evidence],
+        query: str = "",
+        query_analysis: Optional[QueryAnalysis] = None
+    ) -> List[VerificationResult]:
         """
         Verify claims made in the synthesized answer against the retrieved evidence.
-        Combines deterministic regex/index checks and semantic LLM evaluation.
+        Enforces Query-Aligned Verification:
+        - Query <-> Legal Issues
+        - Legal Issues <-> Evidence
+        - Answer Claims <-> Evidence
+        - Explicit Identifier <-> Evidence
+        - Domain <-> Evidence
         """
+        # If answer reports insufficient evidence, verify safely
+        if "insufficient" in answer.lower() or "अपर्याप्त साक्ष्य" in answer or "సరిపడా ఆధారాలు లేవు" in answer:
+            return [
+                VerificationResult(
+                    claim="Insufficient authoritative evidence retrieved to answer query reliably",
+                    supported=False,
+                    evidence_ids=[],
+                    citation_correct=True,
+                    confidence=0.1,
+                    issues=["No authoritative statutory provisions or judicial precedents found in indexed corpus."],
+                    claim_id=str(uuid.uuid4()),
+                    importance="high",
+                    verification_status="insufficient_evidence",
+                    evidence_links=[]
+                )
+            ]
+
         if not evidence:
             return [
                 VerificationResult(
@@ -21,7 +49,7 @@ class VerificationAgent:
                     supported=False,
                     evidence_ids=[],
                     citation_correct=False,
-                    confidence=1.0,
+                    confidence=0.0,
                     issues=["No source evidence was retrieved, so the answer is ungrounded."],
                     claim_id=str(uuid.uuid4()),
                     importance="high",
@@ -29,6 +57,48 @@ class VerificationAgent:
                     evidence_links=[]
                 )
             ]
+
+        # Check for catastrophic Domain Mismatch (e.g., Motor Vehicle query vs Constitutional Article)
+        if query_analysis:
+            primary_domain = query_analysis.primary_domain
+            for ev in evidence:
+                ev_meta = ev.metadata or {}
+                doc_type = ev.doc_type
+                if primary_domain == "Motor Vehicle Law" and doc_type in ["constitutional", "constitutional_amendment"]:
+                    return [
+                        VerificationResult(
+                            claim=f"Constitutional provisions cited for {primary_domain} query",
+                            supported=False,
+                            evidence_ids=[ev.id],
+                            citation_correct=False,
+                            confidence=0.0,
+                            issues=[f"Domain Mismatch: Query is {primary_domain} but retrieved evidence is Constitutional Law {ev.source}."],
+                            claim_id=str(uuid.uuid4()),
+                            importance="high",
+                            verification_status="unsupported",
+                            evidence_links=[]
+                        )
+                    ]
+                # Explicit Identifier Mismatch Check
+                if query_analysis.explicit_identifiers:
+                    target_art = query_analysis.explicit_identifiers.get("parent_article") or query_analysis.explicit_identifiers.get("article")
+                    if target_art:
+                        doc_art = str(ev_meta.get("parent_article") or ev_meta.get("article") or "").strip()
+                        if doc_art and doc_art != str(target_art):
+                            return [
+                                VerificationResult(
+                                    claim=f"Query requested Article {target_art} but cited Article {doc_art}",
+                                    supported=False,
+                                    evidence_ids=[ev.id],
+                                    citation_correct=False,
+                                    confidence=0.0,
+                                    issues=[f"Provision Mismatch: Query requested Article {target_art} but retrieved Article {doc_art}."],
+                                    claim_id=str(uuid.uuid4()),
+                                    importance="high",
+                                    verification_status="unsupported",
+                                    evidence_links=[]
+                                )
+                            ]
 
         # 1. Deterministic prep: Map citations inline
         citation_matches = re.findall(r'\[(\d+)\]', answer)
@@ -47,7 +117,10 @@ class VerificationAgent:
             )
         evidence_context = "\n".join(evidence_summary)
 
-        system_prompt = f"""You are the Verification Agent for LexAgents. Your job is to verify all key legal claims and assertions made in a generated answer against the source documents.
+        system_prompt = f"""You are the Verification Agent for LexAgents. Your job is to verify all key legal claims and assertions made in a generated answer against the source documents AND verify query-evidence alignment.
+
+User Query: {query}
+Domain Context: {query_analysis.primary_domain if query_analysis else 'General'}
 
 Here is the source evidence that was available during synthesis:
 {evidence_context}
@@ -57,12 +130,15 @@ Here is the synthesized answer:
 
 Your tasks:
 1. Extract the main factual legal claims/assertions made in the answer.
-2. For each claim, identify which sources (e.g. Source [1], Source [2]) are cited or should support it.
-3. Compare the claim text against the source text. Determine:
-   - Is the claim actually supported by the source text? (i.e. does the source contain the facts stated?)
-   - Is the citation correct? (i.e. is the footnote mapped to the correct source, or is it hallucinated?)
-   - Are there issues, contradictions, or is the source outdated?
-4. Output your analysis in a structured JSON format.
+2. For each claim, identify which sources are cited.
+3. Compare the claim text against the source text AND query intent:
+   - Is the claim actually supported by the source text?
+   - Is the citation correct?
+   - Does the claim genuinely answer the user's legal issue, or is it an irrelevant topic? If irrelevant, mark supported=false.
+4. Output your analysis in a structured JSON format. Confidence must be calibrated:
+   - High (0.90 - 0.95): strong explicit match and clear statutory authority
+   - Medium (0.60 - 0.80): moderate contextual match
+   - Low (0.0 - 0.30): ungrounded, mismatched, or insufficient evidence. NEVER output 0.98 or 0.99 for generic comparisons.
 
 Your output MUST be a JSON object with this structure:
 {{

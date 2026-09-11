@@ -1,25 +1,30 @@
 import json
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from backend.app.core.llm import generate_chat_completion
-from backend.app.models.schemas import Evidence
+from backend.app.models.schemas import Evidence, QueryAnalysis
 
 logger = logging.getLogger(__name__)
 
 class SynthesisAgent:
-    def synthesize(self, query: str, evidence: List[Evidence], language: str = "en") -> Dict[str, Any]:
+    def synthesize(self, query: str, evidence: List[Evidence], language: str = "en", query_analysis: Optional[QueryAnalysis] = None) -> Dict[str, Any]:
         """
-        Synthesize retrieved evidence into a cohesive legal research answer.
+        Synthesize retrieved evidence into a cohesive, query-constrained legal research answer.
         Identifies conflicts and aligns citations.
-        Supports English, Hindi, and Telugu output with citation preservation.
+        Enforces strict safety: if evidence is insufficient, state so clearly without inventing law.
         """
         if not evidence:
+            primary_domain = query_analysis.primary_domain if query_analysis else "the requested legal subject"
+            issues_text = ""
+            if query_analysis and query_analysis.legal_issues:
+                issues_text = "\n\nIdentified Legal Issues:\n- " + "\n- ".join(query_analysis.legal_issues)
+            
             if language == "hi":
-                empty_msg = "उपलब्ध भारतीय कानूनी भंडार के आधार पर, इस प्रश्न का मूल्यांकन करने के लिए अपर्याप्त साक्ष्य हैं। कोई प्रासंगिक कानूनी साक्ष्य प्राप्त नहीं हुआ।"
+                empty_msg = f"उपलब्ध भारतीय कानूनी भंडार के आधार पर, इस प्रश्न का उत्तर देने के लिए पर्याप्त प्रामाणिक कानूनी साक्ष्य उपलब्ध नहीं हैं। वर्तमान भंडार में {primary_domain} से संबंधित सांविधिक प्रावधान या न्यायिक निर्णय अनुक्रमित नहीं हैं।{issues_text}"
             elif language == "te":
-                empty_msg = "భారతీయ చట్టపరమైన సమాచార నిధి ఆధారంగా, ఈ ప్రశ్నను విశ్లేషించడానికి సరిపడా ఆధారాలు లేవు (insufficient evidence). ఎటువంటి సంబంధిత ఆధారాలు లభించలేదు."
+                empty_msg = f"అందుబాటులో ఉన్న భారతీయ చట్టపరమైన సమాచార నిధి ఆధారంగా, ఈ ప్రశ్నకు సమాధానం ఇవ్వడానికి తగిన చట్టపరమైన ఆధారాలు లభించలేదు (insufficient evidence). ప్రస్తుత సమాచార నిధిలో {primary_domain} కు సంబంధించిన నిబంధనలు లేదా తీర్పులు లేవు.{issues_text}"
             else:
-                empty_msg = "Based on the Indian legal repository, there is insufficient evidence available to evaluate this query. No relevant legal evidence was found in statutory provisions, regulatory circulars, or judicial precedents."
+                empty_msg = f"Based on the Indian legal repository, there is insufficient authoritative evidence available to answer this question reliably. The indexed corpus does not currently contain statutory provisions or judicial precedents governing {primary_domain}.{issues_text}"
             return {
                 "answer": empty_msg,
                 "conflicts": []
@@ -37,6 +42,14 @@ class SynthesisAgent:
                 f"---"
             )
         evidence_context = "\n".join(evidence_summary)
+
+        facts_block = ""
+        issues_block = ""
+        if query_analysis:
+            if query_analysis.facts:
+                facts_block = "\nExtracted Facts:\n- " + "\n- ".join(query_analysis.facts)
+            if query_analysis.legal_issues:
+                issues_block = "\nIdentified Legal Issues:\n- " + "\n- ".join(query_analysis.legal_issues)
 
         lang_instruction = ""
         if language == "hi":
