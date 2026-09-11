@@ -2,15 +2,15 @@ import { ResearchResponse, SessionObservabilityResponse, EvaluationRunResult } f
 
 function getApiBase(): string {
   const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) {
-    if (process.env.NODE_ENV === "production" && typeof window !== "undefined") {
-      throw new Error(
-        "Production backend URL is not configured. Please set the NEXT_PUBLIC_API_URL environment variable in your Vercel project settings."
-      );
-    }
-    return "http://127.0.0.1:8000";
+  if (url && url.trim()) {
+    return url.trim().replace(/\/+$/, "");
   }
-  return url;
+  if (process.env.NODE_ENV === "production" && typeof window !== "undefined") {
+    console.warn(
+      "NEXT_PUBLIC_API_URL is not set. Requests will fall back to http://127.0.0.1:8000. Set NEXT_PUBLIC_API_URL in Vercel settings to your Render backend URL."
+    );
+  }
+  return "http://127.0.0.1:8000";
 }
 
 
