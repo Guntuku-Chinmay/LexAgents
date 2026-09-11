@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     # Web Search Toggle
     WEB_SEARCH_ENABLED: bool = Field(default=True)
 
+    # Firecrawl Ingestion Configuration
+    FIRECRAWL_API_KEY: Optional[str] = Field(default=None)
+    FIRECRAWL_ENABLED: bool = Field(default=False)
+    FIRECRAWL_BASE_URL: str = Field(default="https://api.firecrawl.dev/v1")
+    FIRECRAWL_MAX_PAGES_PER_RUN: int = Field(default=10)
+    FIRECRAWL_MAX_PAGES_PER_SOURCE: int = Field(default=5)
+    FIRECRAWL_CONCURRENCY: int = Field(default=2)
+    FIRECRAWL_TIMEOUT: int = Field(default=30)
+
     # CORS Configuration (comma-separated origins)
     CORS_ORIGINS: str = Field(default="http://localhost:3000,http://127.0.0.1:3000,https://lex-agents.vercel.app")
 

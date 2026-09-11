@@ -137,14 +137,95 @@ def extract_metadata_from_filename(filename: str) -> Dict[str, Any]:
     metadata["authority_level"] = AUTHORITY_TIERS.get(metadata["doc_type"], "TIER 4")
     return metadata
 
-def chunk_text(text: str, max_chunk_words: int = 250, overlap_words: int = 50) -> List[Dict[str, Any]]:
+# Strict legal identifier regexes
+ARTICLE_PATTERN = re.compile(
+    r'\b(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*|\b[IVXLCDM]+\b)',
+    re.IGNORECASE
+)
+SECTION_PATTERN = re.compile(
+    r'\b(?:Section|Sec\.|§|धारा|సెక్షన్|విభాగం)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*|\b[IVXLCDM]+\b)',
+    re.IGNORECASE
+)
+REGULATION_PATTERN = re.compile(
+    r'\b(?:Regulation|Reg\.|विनियमन|రెగ్యులేషన్)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*)(?=[^0-9a-zA-Z(]|$)',
+    re.IGNORECASE
+)
+RULE_PATTERN = re.compile(
+    r'\b(?:Rule|नियम|రూల్)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*)(?=[^0-9a-zA-Z(]|$)',
+    re.IGNORECASE
+)
+PARAGRAPH_PATTERN = re.compile(
+    r'\b(?:Paragraph|Para\.)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*)(?=[^0-9a-zA-Z(]|$)',
+    re.IGNORECASE
+)
+CLAUSE_PATTERN = re.compile(
+    r'\b(?:Clause)\s*(\d+[A-Za-z]*(?:\([0-9a-zA-Z]+\))*)(?=[^0-9a-zA-Z(]|$)',
+    re.IGNORECASE
+)
+STRUCTURAL_BOUNDARY_PATTERN = re.compile(
+    r'(?m)^(?=(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|Section|Sec\.|§|धारा|సెక్షన్|Regulation|Reg\.|Rule|Paragraph|Para\.|Clause)\s*\d+|CONSTITUTION\s*\([^)]*\)\s*ACT|THE\s+[A-Z\s,]+ACT)',
+    re.IGNORECASE
+)
+
+def chunk_text(text: str, max_chunk_words: int = 350, overlap_words: int = 40) -> List[Dict[str, Any]]:
     """
-    Split text into logical chunks.
-    Attempts to respect structural legal splits (e.g. sections or paragraph marks).
+    Split text into logical legal chunks.
+    Preserves structural legal boundaries (Articles, Sections, Regulations, Rules, Clauses).
+    Falls back to paragraph-level chunking when structural markers are absent.
     """
     text = text.replace("\r\n", "\n")
-    paragraphs = text.split("\n\n")
     
+    # Check if document has structural legal boundaries
+    has_structural_splits = bool(STRUCTURAL_BOUNDARY_PATTERN.search(text))
+    
+    if has_structural_splits:
+        raw_sections = [s.strip() for s in STRUCTURAL_BOUNDARY_PATTERN.split(text) if s.strip()]
+        chunks = []
+        preamble = ""
+        
+        for sec in raw_sections:
+            has_provision = (
+                ARTICLE_PATTERN.search(sec) or 
+                SECTION_PATTERN.search(sec) or 
+                REGULATION_PATTERN.search(sec) or
+                RULE_PATTERN.search(sec) or
+                PARAGRAPH_PATTERN.search(sec) or
+                CLAUSE_PATTERN.search(sec)
+            )
+            
+            # If leading preamble without provisions, store to prepend to first provision
+            if not has_provision and len(sec.split()) < 40 and not chunks:
+                preamble = sec
+                continue
+                
+            chunk_content = f"{preamble}\n\n{sec}".strip() if preamble else sec
+            preamble = ""
+            
+            sec_words = chunk_content.split()
+            if len(sec_words) <= max_chunk_words:
+                chunks.append(chunk_content)
+            else:
+                # Split large provision across paragraphs
+                para_splits = chunk_content.split("\n\n")
+                current_sub = []
+                for p in para_splits:
+                    p = p.strip()
+                    if not p:
+                        continue
+                    p_words = p.split()
+                    if len(current_sub) + len(p_words) > max_chunk_words:
+                        if current_sub:
+                            chunks.append(" ".join(current_sub))
+                            current_sub = []
+                    current_sub.extend(p_words)
+                if current_sub:
+                    chunks.append(" ".join(current_sub))
+        
+        if chunks:
+            return [{"text": c, "id": str(uuid.uuid4())} for c in chunks]
+
+    # Standard paragraph-based fallback
+    paragraphs = text.split("\n\n")
     chunks = []
     current_chunk_words = []
     
@@ -186,7 +267,6 @@ def parse_and_chunk_file(filepath: str, metadata_override: Dict[str, Any] = None
     base_metadata = extract_metadata_from_filename(filename)
     if metadata_override:
         base_metadata.update(metadata_override)
-        # Ensure authority level stays in sync if doc_type is overridden
         if "doc_type" in metadata_override:
             base_metadata["authority_level"] = AUTHORITY_TIERS.get(metadata_override["doc_type"], "TIER 4")
         
@@ -246,23 +326,66 @@ def parse_and_chunk_file(filepath: str, metadata_override: Dict[str, Any] = None
     return chunks_with_metadata
 
 def _extract_inline_identifiers(text: str, meta: Dict[str, Any]):
-    """Extract section numbers, article numbers, rule numbers, regulation numbers from text."""
-    # Match Articles (e.g. Article 21 or Art. 21)
-    article_match = re.search(r'\b(?:Article|Art\.)\s*([A-Za-z0-9\(\)]+)\b', text, re.IGNORECASE)
-    if article_match:
-        meta["article"] = article_match.group(1)
+    """Strictly extract legal identifiers without false positives on English prose."""
+    # 1. Articles
+    articles = []
+    for m in ARTICLE_PATTERN.finditer(text):
+        val = m.group(1).strip()
+        if val and val not in articles:
+            articles.append(val)
+    primary_article = articles[0] if articles else None
 
-    # Match Sections (e.g. Section 138 or Sec. 138 or Section 420)
-    section_match = re.search(r'\b(?:Section|Sec\.|§)\s*([A-Za-z0-9\(\)]+)\b', text, re.IGNORECASE)
-    if section_match:
-        meta["section"] = section_match.group(1)
+    # 2. Sections
+    sections = []
+    for m in SECTION_PATTERN.finditer(text):
+        val = m.group(1).strip()
+        if val and val not in sections:
+            sections.append(val)
+    primary_section = sections[0] if sections else None
 
-    # Match Regulation (e.g. Regulation 3 or Reg 3)
-    reg_match = re.search(r'\b(?:Regulation|Reg\.|Reg)\s*([A-Za-z0-9\(\)]+)\b', text, re.IGNORECASE)
-    if reg_match:
-        meta["regulation"] = reg_match.group(1)
+    # 3. Regulations (excluding 4-digit years like Regulations, 2015)
+    regulations = []
+    for m in REGULATION_PATTERN.finditer(text):
+        val = m.group(1).strip()
+        if val and val.isdigit() and len(val) == 4 and int(val) in range(1900, 2100):
+            continue
+        if val and val not in regulations:
+            regulations.append(val)
+    primary_regulation = regulations[0] if regulations else None
 
-    # Match Rule (e.g. Rule 4 or Rule 4(1))
-    rule_match = re.search(r'\b(?:Rule)\s*([A-Za-z0-9\(\)]+)\b', text, re.IGNORECASE)
-    if rule_match:
-        meta["rule"] = rule_match.group(1)
+    # 4. Rules
+    rules = []
+    for m in RULE_PATTERN.finditer(text):
+        val = m.group(1).strip()
+        if val and val not in rules:
+            rules.append(val)
+    primary_rule = rules[0] if rules else None
+
+    # 5. Paragraphs
+    paragraphs = []
+    for m in PARAGRAPH_PATTERN.finditer(text):
+        val = m.group(1).strip()
+        if val and val not in paragraphs:
+            paragraphs.append(val)
+    primary_para = paragraphs[0] if paragraphs else None
+
+    # Populate metadata preserving backward compatibility
+    meta["article"] = primary_article
+    meta["primary_article"] = primary_article
+    meta["articles"] = articles
+
+    meta["section"] = primary_section
+    meta["primary_section"] = primary_section
+    meta["sections"] = sections
+
+    meta["regulation"] = primary_regulation
+    meta["primary_regulation"] = primary_regulation
+    meta["regulations"] = regulations
+
+    meta["rule"] = primary_rule
+    meta["primary_rule"] = primary_rule
+    meta["rules"] = rules
+
+    meta["paragraph"] = primary_para
+    meta["primary_paragraph"] = primary_para
+    meta["paragraphs"] = paragraphs

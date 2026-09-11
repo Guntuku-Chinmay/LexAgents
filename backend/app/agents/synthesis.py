@@ -14,8 +14,14 @@ class SynthesisAgent:
         Supports English, Hindi, and Telugu output with citation preservation.
         """
         if not evidence:
+            if language == "hi":
+                empty_msg = "उपलब्ध भारतीय कानूनी भंडार के आधार पर, इस प्रश्न का मूल्यांकन करने के लिए अपर्याप्त साक्ष्य हैं। कोई प्रासंगिक कानूनी साक्ष्य प्राप्त नहीं हुआ।"
+            elif language == "te":
+                empty_msg = "భారతీయ చట్టపరమైన సమాచార నిధి ఆధారంగా, ఈ ప్రశ్నను విశ్లేషించడానికి సరిపడా ఆధారాలు లేవు (insufficient evidence). ఎటువంటి సంబంధిత ఆధారాలు లభించలేదు."
+            else:
+                empty_msg = "Based on the Indian legal repository, there is insufficient evidence available to evaluate this query. No relevant legal evidence was found in statutory provisions, regulatory circulars, or judicial precedents."
             return {
-                "answer": "No relevant legal evidence was found to answer this query. Consequently, no legal claims can be verified or presented.",
+                "answer": empty_msg,
                 "conflicts": []
             }
 

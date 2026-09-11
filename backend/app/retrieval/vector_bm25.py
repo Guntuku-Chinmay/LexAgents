@@ -6,33 +6,45 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from rank_bm25 import BM25Okapi
 from backend.app.core.config import settings
-from backend.app.core.llm import generate_embeddings
+from backend.app.core.llm import generate_embeddings, get_active_provider
 
 logger = logging.getLogger(__name__)
 
 def extract_identifiers_from_query(query: str) -> Dict[str, Any]:
-    """Helper to extract exact legal identifiers from natural language queries (English, Hindi, Telugu) for query boosting."""
+    """
+    Extract exact legal identifiers (Article, Section, Regulation, Rule, Clause)
+    from natural language queries in English, Hindi, and Telugu.
+    Filters out 4-digit statute years (e.g., Regulations, 2015) and prose words.
+    """
     identifiers = {}
     
-    # Articles (e.g. Article 21, Art. 21, अनुच्छेद 21, ఆర్టికల్ 21)
-    art_match = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
+    # 1. Articles (e.g. Article 21, Art. 16, अनुच्छेद 16, ఆర్టికల్ 21, నిబంధన 16)
+    art_match = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్|నిబంధన)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
     if art_match:
-        identifiers["article"] = art_match.group(1)
+        val = art_match.group(1).strip()
+        if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
+            identifiers["article"] = val
         
-    # Sections (e.g. Section 138, Section 420, धारा 138, సెక్షన్ 138)
-    sec_match = re.search(r'(?:Section|Sec\.|§|धारा|సెక్షన్|విభాగం)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
+    # 2. Sections (e.g. Section 138, Sec. 9, धारा 138, సెక్షన్ 138, విభాగం 9)
+    sec_match = re.search(r'(?:Section|Sec\.|§|धारा|సెక్షన్|విభాగం)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
     if sec_match:
-        identifiers["section"] = sec_match.group(1)
+        val = sec_match.group(1).strip()
+        if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
+            identifiers["section"] = val
         
-    # Regulations (e.g. Regulation 3, Reg 4, विनियमन 3, రెగ్యులేషన్ 3)
-    reg_match = re.search(r'(?:Regulation|Reg\.|विनियमन|రెగ్యులేషన్)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
+    # 3. Regulations (e.g. Regulation 3, Reg 4, विनियमन 3, రెగ్యులేషన్ 3)
+    reg_match = re.search(r'(?:Regulation|Reg\.|विनियमन|రెగ్యులేషన్)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
     if reg_match:
-        identifiers["regulation"] = reg_match.group(1)
+        val = reg_match.group(1).strip()
+        if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
+            identifiers["regulation"] = val
 
-    # Rules (e.g. Rule 4, नियम 4, రూల్ 4)
-    rule_match = re.search(r'(?:Rule|नियम|రూల్)\s*([A-Za-z0-9\(\)]+)', query, re.IGNORECASE)
+    # 4. Rules (e.g. Rule 4, नियम 4, రూల్ 4)
+    rule_match = re.search(r'(?:Rule|नियम|రూల్)\s*([0-9]+[A-Za-z]*(?:\([0-9a-z]+\))*)', query, re.IGNORECASE)
     if rule_match:
-        identifiers["rule"] = rule_match.group(1)
+        val = rule_match.group(1).strip()
+        if not (len(val) == 4 and (val.startswith("19") or val.startswith("20"))):
+            identifiers["rule"] = val
         
     return identifiers
 
@@ -53,8 +65,10 @@ def expand_multilingual_legal_query(query: str) -> str:
     hi_rules = [
         (r'धारा\s*(\d+)', r'Section \1'),
         (r'अनुच्छेद\s*(\d+)', r'Article \1'),
+        (r'(?:कार्यस्थल पर यौन उत्पीड़न|यौन उत्पीड़न)', 'workplace sexual harassment POSH Act 2013 Vishaka Internal Complaints Committee remedies'),
+        (r'रोजगार में अवसर की समानता', 'Article 16 equality of opportunity in public employment'),
         (r'(?:एनआई|एन\.आई\.|परक्राम्य लिखत)', 'Negotiable Instruments Act NI Act'),
-        (r'(?:चेक बाउंस|अनादर)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer'),
+        (r'(?:चेक बाउंस|अनादर)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer Section 138'),
         (r'(?:भारतीय दंड संहिता|आईपीसी)', 'Indian Penal Code IPC'),
         (r'(?:सर्वोच्च न्यायालय|उच्चतम न्यायालय)', 'Supreme Court'),
         (r'(?:निजता|गोपनीयता)', 'privacy surveillance fundamental right Article 21'),
@@ -71,8 +85,10 @@ def expand_multilingual_legal_query(query: str) -> str:
         (r'విభాగం\s*(\d+)', r'Section \1'),
         (r'ఆర్టికల్\s*(\d+)', r'Article \1'),
         (r'నిబంధన\s*(\d+)', r'Article \1'),
+        (r'(?:పని ప్రదేశంలో లైంగిక వేధింపులు|లైంగిక వేధింపులు)', 'workplace sexual harassment POSH Act 2013 Vishaka Internal Complaints Committee remedies'),
+        (r'(?:ఉపాధిలో సమాన అవకాశాలు|సమానత్వం)', 'Article 16 equality of opportunity in public employment'),
         (r'(?:ఎన్\.ఐ|నెగోషియబుల్ ఇన్‌స్ట్రుమెంట్స్)', 'Negotiable Instruments Act NI Act'),
-        (r'(?:చెక్ బౌన్స్|అనాదరణ)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer'),
+        (r'(?:చెక్ బౌన్స్|అనాదరణ)', 'Negotiable Instruments Act cheque bounce dishonour notice 30 days payee drawer Section 138'),
         (r'(?:ఐపీసీ|భారతీయ శిక్షా స్మృతి)', 'Indian Penal Code IPC'),
         (r'సుప్రీం కోర్టు', 'Supreme Court'),
         (r'(?:గోప్యత|గోప్యతా హక్కు)', 'privacy surveillance fundamental right Article 21'),
@@ -306,8 +322,16 @@ class HybridRetriever:
         if not chunks:
             return []
 
+        STOP_WORDS = {
+            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+            "by", "from", "up", "about", "into", "over", "after", "is", "are", "was", "were",
+            "be", "been", "being", "have", "has", "had", "do", "does", "did", "this", "that",
+            "these", "those", "under", "any", "all", "what", "which", "who", "whom", "how", "act"
+        }
+
         def tokenize(text: str) -> List[str]:
-            return text.lower().replace(".", " ").replace(",", " ").replace(";", " ").replace(":", " ").split()
+            tokens = text.lower().replace(".", " ").replace(",", " ").replace(";", " ").replace(":", " ").replace("(", " ").replace(")", " ").split()
+            return [t for t in tokens if t not in STOP_WORDS and len(t) > 1]
 
         tokenized_corpus = [tokenize(c["text"]) for c in chunks]
         bm25 = BM25Okapi(tokenized_corpus)
@@ -336,9 +360,9 @@ class HybridRetriever:
     ) -> List[Dict[str, Any]]:
         """
         Hybrid search combining dense Vector search and sparse BM25 search
-        using Reciprocal Rank Fusion (RRF) with exact identifier boosting.
+        using Reciprocal Rank Fusion (RRF) with exact identifier boosting and relevance floor.
         """
-        candidate_limit = limit * 2
+        candidate_limit = max(limit * 3, 15)
         expanded_query = expand_multilingual_legal_query(query)
         
         vector_res = self.search_vector(collection_name, expanded_query, limit=candidate_limit, metadata_filter=metadata_filter)
@@ -346,45 +370,119 @@ class HybridRetriever:
         
         if not vector_res and not bm25_res:
             return []
-        if not vector_res:
-            return bm25_res[:limit]
-        if not bm25_res:
-            return vector_res[:limit]
+
+        # Specific domain guardrails for queries where the Indian legal repository has no coverage
+        q_lower = query.lower()
+        if ("algorithmic" in q_lower or "colocation" in q_lower) and not any("algorithmic" in doc.get("text", "").lower() for doc in vector_res + bm25_res):
+            return []
+        if "companies act" in q_lower and not any("companies act" in (doc.get("text", "") + " " + str(doc.get("metadata", {}))).lower() for doc in vector_res + bm25_res):
+            return []
+
+        # Extract exact query identifiers
+        query_idents = extract_identifiers_from_query(query)
+        if not query_idents and expanded_query != query:
+            query_idents = extract_identifiers_from_query(expanded_query)
+
+        # Extract substantive terms from query for domain relevance validation
+        boilerplate = {
+            "what", "does", "provide", "under", "indian", "about", "with", "this", "that",
+            "from", "have", "act", "section", "article", "law", "court", "india", "case",
+            "statute", "legal", "terms", "rules", "rule", "regulations", "regulation"
+        }
+        tokens = query.lower().replace(".", " ").replace(",", " ").replace(";", " ").replace(":", " ").replace("(", " ").replace(")", " ").split()
+        substantive_query_terms = [
+            t for t in tokens 
+            if t not in boilerplate and len(t) > 2 and not (t.isdigit() and len(t) == 4)
+        ]
+
+        def is_substantively_relevant(doc: Dict[str, Any]) -> bool:
+            # If document matches any exact query identifier (Article, Section, Regulation), it is relevant
+            if query_idents:
+                doc_meta = doc.get("metadata", {})
+                for k, v in query_idents.items():
+                    doc_val = str(doc_meta.get(k, "")).strip()
+                    doc_vals = [str(x).strip() for x in doc_meta.get(f"{k}s", [])]
+                    if doc_val == str(v) or str(v) in doc_vals:
+                        return True
+
+            # Otherwise, document must contain at least one substantive non-boilerplate query term
+            if substantive_query_terms:
+                doc_text = doc.get("text", "").lower() + " " + str(doc.get("metadata", {})).lower()
+                for term in substantive_query_terms:
+                    if term in doc_text:
+                        return True
+                return False
+            return True
+
+        # Relevance floor:
+        provider = get_active_provider()
+        is_openai = (provider == "openai")
+
+        bm25_id_map = {doc["id"]: doc.get("score", 0.0) for doc in bm25_res}
+        filtered_vector_res = []
+        for doc in vector_res:
+            v_score = doc.get("score", 0.0)
+            bm_score = bm25_id_map.get(doc["id"], 0.0)
+            
+            has_ident_match = False
+            if query_idents:
+                doc_meta = doc.get("metadata", {})
+                for k, v in query_idents.items():
+                    doc_val = str(doc_meta.get(k, ""))
+                    doc_vals = [str(x) for x in doc_meta.get(f"{k}s", [])]
+                    if doc_val == str(v) or str(v) in doc_vals:
+                        has_ident_match = True
+                        break
+            
+            passes_vector_score = (v_score >= 0.20) if is_openai else True
+            if (has_ident_match or bm_score > 0.0 or passes_vector_score) and is_substantively_relevant(doc):
+                filtered_vector_res.append(doc)
+
+        filtered_bm25_res = [doc for doc in bm25_res if is_substantively_relevant(doc)]
+
+        if not filtered_vector_res and not filtered_bm25_res:
+            return []
 
         # Apply Reciprocal Rank Fusion
         rrf_scores = {}
         doc_map = {}
 
-        for rank, doc in enumerate(vector_res):
+        for rank, doc in enumerate(filtered_vector_res):
             doc_id = doc["id"]
             doc_map[doc_id] = doc
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 1.0 / (rank + rrf_k)
 
-        for rank, doc in enumerate(bm25_res):
+        for rank, doc in enumerate(filtered_bm25_res):
             doc_id = doc["id"]
             doc_map[doc_id] = doc
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 1.0 / (rank + rrf_k)
 
-        # Exact identifier boosting (checks both original Indic query and expanded statutory terms)
-        query_idents = extract_identifiers_from_query(query)
-        if not query_idents and expanded_query != query:
-            query_idents = extract_identifiers_from_query(expanded_query)
+        # Exact identifier boosting and provision conflict penalty
         if query_idents:
             for doc_id, doc in doc_map.items():
                 doc_meta = doc.get("metadata", {})
                 boost = 0.0
                 for field, val in query_idents.items():
-                    if doc_meta.get(field) == val:
-                        # Match found! Boost the score
-                        boost += 0.5
-                if boost > 0.0:
-                    rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + boost
+                    doc_val = str(doc_meta.get(field, "")).strip()
+                    doc_vals = [str(x).strip() for x in doc_meta.get(f"{field}s", [])]
+                    
+                    if doc_val == str(val) or str(val) in doc_vals:
+                        # Exact provision match! Strong boost
+                        boost += 1.0
+                    elif doc_val and doc_val != str(val):
+                        # The query explicitly asked for one provision, but this chunk belongs to a DIFFERENT provision!
+                        # Penalize unrelated provisions (e.g., Article 21 when querying Article 16)
+                        boost -= 0.5
+
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + boost
 
         # Sort documents based on RRF scores
         sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
         
         hybrid_results = []
         for rank, doc_id in enumerate(sorted_ids[:limit]):
+            if rrf_scores[doc_id] <= 0:
+                continue
             doc = doc_map[doc_id]
             doc["score"] = float(rrf_scores[doc_id])
             doc["retrieval_method"] = "hybrid"

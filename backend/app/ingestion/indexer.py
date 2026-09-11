@@ -17,7 +17,7 @@ def get_collection_for_doc_type(doc_type: str) -> str:
     else:
         return "legal_documents"
 
-def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = None, collection_name: Optional[str] = None) -> int:
+def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = None, collection_name: Optional[str] = None, force_reindex: bool = False) -> int:
     """
     Ingest a single file: parse it, verify SHA-256 hash duplication, and handle versioning.
     Returns the number of indexed chunks.
@@ -48,7 +48,7 @@ def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = Non
 
     # 3. Duplicate Detection Check
     existing_by_hash = db.get_document_by_hash(content_hash)
-    if existing_by_hash:
+    if existing_by_hash and not force_reindex:
         logger.info(f"Duplicate content detected for {filename} (SHA-256: {content_hash}). Skipping indexing.")
         return len(chunks)
 
@@ -103,7 +103,7 @@ def ingest_file(filepath: str, metadata_override: Optional[Dict[str, Any]] = Non
     logger.info(f"Finished ingesting {filename}. {len(chunks)} chunks written to Qdrant collection '{collection_name}'")
     return len(chunks)
 
-def ingest_directory(directory_path: str, doc_type_override: Optional[str] = None) -> int:
+def ingest_directory(directory_path: str, doc_type_override: Optional[str] = None, force_reindex: bool = False) -> int:
     """Ingest all compatible files in a directory."""
     if not os.path.isdir(directory_path):
         logger.warning(f"Directory not found: {directory_path}")
@@ -118,7 +118,7 @@ def ingest_directory(directory_path: str, doc_type_override: Optional[str] = Non
                 if doc_type_override:
                     meta_override["doc_type"] = doc_type_override
                 try:
-                    count += ingest_file(filepath, metadata_override=meta_override)
+                    count += ingest_file(filepath, metadata_override=meta_override, force_reindex=force_reindex)
                 except Exception as e:
                     logger.error(f"Failed to ingest {filepath}: {e}")
     return count

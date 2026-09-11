@@ -24,7 +24,7 @@ def bootstrap():
     cases_dir = "data/corpus/cases"
     if os.path.exists(cases_dir):
         logger.info(f"Ingesting cases from {cases_dir}...")
-        count = ingest_directory(cases_dir, doc_type_override=None)
+        count = ingest_directory(cases_dir, doc_type_override=None, force_reindex=True)
         logger.info(f"Ingested {count} case chunks.")
     else:
         logger.error(f"Cases directory not found: {cases_dir}")
@@ -33,7 +33,7 @@ def bootstrap():
     statutes_dir = "data/corpus/statutes"
     if os.path.exists(statutes_dir):
         logger.info(f"Ingesting statutes from {statutes_dir}...")
-        count = ingest_directory(statutes_dir, doc_type_override=None)
+        count = ingest_directory(statutes_dir, doc_type_override=None, force_reindex=True)
         logger.info(f"Ingested {count} statute chunks.")
     else:
         logger.error(f"Statutes directory not found: {statutes_dir}")
@@ -42,7 +42,7 @@ def bootstrap():
     lease_path = "data/corpus/sample_lease_agreement.txt"
     if os.path.exists(lease_path):
         logger.info(f"Ingesting sample lease agreement from {lease_path}...")
-        count = ingest_file(lease_path, metadata_override={"doc_type": "user_upload"}, collection_name="legal_documents")
+        count = ingest_file(lease_path, metadata_override={"doc_type": "user_upload"}, collection_name="legal_documents", force_reindex=True)
         logger.info(f"Ingested {count} lease agreement chunks.")
     else:
         logger.error(f"Lease path not found: {lease_path}")
