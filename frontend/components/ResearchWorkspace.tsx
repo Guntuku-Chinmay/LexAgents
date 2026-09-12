@@ -28,6 +28,8 @@ interface ResearchWorkspaceProps {
   answer: string;
   citations: Evidence[];
   onSelectCitation: (id: string) => void;
+  overallStatus?: string;
+  confidenceLabel?: string;
 }
 
 const LANGUAGES: { code: SupportedLanguage; label: string; nativeLabel: string; speechCode: string }[] = [
@@ -68,6 +70,8 @@ export default function ResearchWorkspace({
   answer,
   citations,
   onSelectCitation,
+  overallStatus,
+  confidenceLabel,
 }: ResearchWorkspaceProps) {
   const [inputQuery, setInputQuery] = useState("");
   const [useWeb, setUseWeb] = useState(true);
@@ -477,9 +481,27 @@ export default function ResearchWorkspace({
                 )}
               </button>
 
-              <span className="text-xs px-2 py-0.5 bg-teal-950 text-teal-300 border border-teal-800/50 font-mono rounded">
-                Grounded & Verified
-              </span>
+              {overallStatus === "verified" ? (
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 font-mono rounded flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Grounded & Verified</span>
+                  {confidenceLabel && <span className="text-[10px] text-emerald-400 font-sans">({confidenceLabel})</span>}
+                </span>
+              ) : overallStatus === "insufficient_evidence" || answer.toLowerCase().includes("insufficient") || answer.includes("अपर्याप्त") || answer.includes("సరిపడా") ? (
+                <span className="text-xs px-2.5 py-0.5 bg-amber-950/80 text-amber-300 border border-amber-700/60 font-mono rounded flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Insufficient Evidence</span>
+                </span>
+              ) : overallStatus === "unsupported" ? (
+                <span className="text-xs px-2.5 py-0.5 bg-rose-950/80 text-rose-300 border border-rose-700/60 font-mono rounded flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                  <span>Unverified / Domain Mismatch</span>
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-0.5 bg-teal-950/80 text-teal-300 border border-teal-800/50 font-mono rounded flex items-center space-x-1">
+                  <span>Synthesized Output</span>
+                </span>
+              )}
             </div>
           </div>
 

@@ -8,23 +8,51 @@ class QueryRequest(BaseModel):
     language: Optional[str] = "en"
 
 
-class QueryAnalysis(BaseModel):
+class QueryContext(BaseModel):
+    query_id: str
     original_query: str
     normalized_query: str
-    query_type: str  # "explicit_reference" | "fact_pattern" | "conceptual_inquiry"
+    language: str = "en"
+    query_type: Any  # e.g., 'fact_pattern', 'provision_lookup', 'legal_explanation', etc.
     primary_domain: str
     secondary_domains: List[str] = Field(default_factory=list)
     sub_domains: List[str] = Field(default_factory=list)
+    intent: List[str] = Field(default_factory=list)
     legal_intents: List[str] = Field(default_factory=list)
     facts: List[str] = Field(default_factory=list)
     legal_issues: List[str] = Field(default_factory=list)
     requested_outcome: Optional[str] = None
-    source_types: List[str] = Field(default_factory=list)
     explicit_identifiers: Dict[str, Any] = Field(default_factory=dict)
     named_entities: List[str] = Field(default_factory=list)
     jurisdiction: str = "India"
-    language: str = "en"
-    confidence: str = "high"  # "high" | "medium" | "low"
+    research_questions: List[str] = Field(default_factory=list)
+    confidence: float = 0.0
+    confidence_label: str = "Limited evidence"  # "Strong evidence" | "Moderate evidence" | "Limited evidence" | "Insufficient evidence"
+    source_types: List[str] = Field(default_factory=list)
+    is_ambiguous: bool = False
+    missing_information: List[str] = Field(default_factory=list)
+
+# Backward-compatible subclass/alias for QueryAnalysis
+class QueryAnalysis(QueryContext):
+    pass
+
+class ResearchPlan(BaseModel):
+    primary_domain: str
+    secondary_domains: List[str] = Field(default_factory=list)
+    research_questions: List[str] = Field(default_factory=list)
+    required_source_types: List[str] = Field(default_factory=list)
+    explicit_targets: List[str] = Field(default_factory=list)
+    search_strategy: str = "domain_aware_fact_pattern"
+    selected_agents: List[str] = Field(default_factory=list)
+
+class AnswerQualityResult(BaseModel):
+    is_relevant: bool = True
+    addresses_query: bool = True
+    addresses_outcome: bool = True
+    addresses_issues: bool = True
+    uses_relevant_evidence: bool = True
+    no_unrelated_law: bool = True
+    rejection_reasons: List[str] = Field(default_factory=list)
 
 class Evidence(BaseModel):
     id: str
@@ -51,6 +79,7 @@ class TaskDecomposition(BaseModel):
 
 class CoordinatorOutput(BaseModel):
     tasks: List[TaskDecomposition]
+    research_plan: Optional[ResearchPlan] = None
 
 class VerificationResult(BaseModel):
     claim: str
@@ -63,6 +92,7 @@ class VerificationResult(BaseModel):
     importance: Optional[str] = "medium"  # 'high' | 'medium' | 'low'
     verification_status: Optional[str] = "supported"  # 'supported', 'partially_supported', 'unsupported', 'contradicted', 'insufficient_evidence'
     evidence_links: Optional[List[Dict[str, str]]] = None  # List of {"evidence_id": "...", "relationship": "supports"}
+    confidence_label: Optional[str] = "Moderate evidence"
 
 class ResearchTraceStep(BaseModel):
     step_name: str
@@ -77,6 +107,10 @@ class ResearchResponse(BaseModel):
     iterations: int
     trace: List[ResearchTraceStep] = Field(default_factory=list)
     language: Optional[str] = "en"
+    query_context: Optional[QueryContext] = None
+    research_plan: Optional[ResearchPlan] = None
+    overall_status: Optional[str] = "supported"  # "supported" | "unsupported" | "insufficient_evidence"
+    confidence_label: Optional[str] = "Moderate evidence"
 
 
 class EvaluationRunResult(BaseModel):
@@ -85,3 +119,4 @@ class EvaluationRunResult(BaseModel):
     system_type: str
     metrics: Dict[str, Any]
     config: Dict[str, Any]
+

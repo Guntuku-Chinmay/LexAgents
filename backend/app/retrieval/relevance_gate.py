@@ -97,22 +97,47 @@ def evaluate_candidate_relevance(
     elif primary_domain == "Women & Gender Justice":
         if "negotiable instruments act" in text_lower or "cheque bounce" in text_lower:
             return False, "Domain mismatch: Cheque bounce text rejected for Women & Gender Justice query", enriched_meta
+        if "motor vehicle" in text_lower or "traffic collision" in text_lower:
+            return False, "Domain mismatch: Motor vehicle text rejected for Women & Gender Justice query", enriched_meta
         if doc_type in ["constitutional", "constitutional_amendment"] and not any(w in text_lower for w in ["gender", "women", "sex", "discrimination", "14", "15", "16", "21"]):
             return False, "Constitutional provision has no bearing on Women & Gender Justice", enriched_meta
 
     elif primary_domain == "Cyber & Technology Law":
         if doc_type in ["constitutional", "constitutional_amendment"] and "article 21" not in text_lower and "privacy" not in text_lower:
             return False, "Unrelated constitutional text rejected for Cyber Law query", enriched_meta
+        if "motor vehicle" in text_lower:
+            return False, "Motor vehicle text rejected for Cyber Law query", enriched_meta
 
     elif primary_domain == "Property & Land Law":
         if "motor vehicle" in text_lower or "traffic collision" in text_lower:
             return False, "Motor vehicle text rejected for Property Law query", enriched_meta
+        if doc_type in ["constitutional", "constitutional_amendment"]:
+            return False, "Constitutional provisions rejected for Property Law query", enriched_meta
+
+    elif primary_domain == "Consumer Law":
+        if doc_type in ["constitutional", "constitutional_amendment"]:
+            return False, "Constitutional provisions rejected for Consumer Law query", enriched_meta
+        if "motor vehicle act" in text_lower and "product" not in text_lower:
+            return False, "Motor vehicle accident text rejected for Consumer Law query", enriched_meta
+
+    elif primary_domain == "Labour & Employment Law":
+        if doc_type in ["constitutional", "constitutional_amendment"] and "16" not in text_lower:
+            return False, "Unrelated constitutional provisions rejected for Labour Law query", enriched_meta
+        if "motor vehicle" in text_lower:
+            return False, "Motor vehicle text rejected for Labour Law query", enriched_meta
+
+    elif primary_domain == "Corporate & Commercial Law":
+        if doc_type in ["constitutional", "constitutional_amendment"]:
+            return False, "Constitutional provisions rejected for Commercial Law query", enriched_meta
+        if "motor vehicle" in text_lower:
+            return False, "Motor vehicle text rejected for Corporate Law query", enriched_meta
 
     elif primary_domain == "Constitutional Law":
         if doc_type not in ["constitutional", "constitutional_amendment", "sc_judgment", "hc_judgment"]:
             # Private contracts cannot serve as primary evidence for Constitutional Law
             if doc_type in ["user_upload", "contract"]:
                 return False, "Private lease or user contract cannot serve as authority for Constitutional Law", enriched_meta
+
 
     # 3. SUBSTANTIVE RELEVANCE FLOOR
     # Extract query substantive tokens

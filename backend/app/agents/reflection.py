@@ -7,7 +7,8 @@ from typing import List, Dict, Any, Tuple, Optional
 from backend.app.core.config import settings
 from backend.app.core.llm import generate_chat_completion
 from backend.app.models.schemas import (
-    Evidence, VerificationResult, ResearchTraceStep, ResearchResponse, TaskDecomposition
+    Evidence, VerificationResult, ResearchTraceStep, ResearchResponse, TaskDecomposition,
+    ResearchPlan, QueryContext
 )
 from backend.app.database.db_manager import db
 from backend.app.agents.coordinator import coordinator_agent
@@ -180,6 +181,7 @@ class Orchestrator:
         # Start of iteration loop
         iteration = 0
         tasks_to_run: List[TaskDecomposition] = []
+        research_plan: Optional[ResearchPlan] = None
 
         while iteration < max_iterations:
             iteration += 1
@@ -189,8 +191,9 @@ class Orchestrator:
             # Step 1: Decomposition
             if iteration == 1:
                 # Coordinator decomposes initial query
-                coordinator_output = self.coordinator.decompose_query(query, uploaded_docs, use_web)
+                coordinator_output = self.coordinator.decompose_query(query, uploaded_docs, use_web, query_analysis=query_analysis)
                 tasks_to_run = coordinator_output.tasks
+                research_plan = coordinator_output.research_plan
             # Else tasks_to_run is populated by the previous Reflection step
 
             add_trace_step(f"Decomposition (Iteration {iteration})", {
@@ -308,6 +311,37 @@ class Orchestrator:
         if not final_citations:
             final_citations = list(collected_evidence.values())
 
+        # Determine overall verification status and confidence label
+        is_insufficient = (
+            not collected_evidence or
+            "insufficient" in draft_answer.lower() or
+            "अपर्याप्त साक्ष्य" in draft_answer or
+            "సరిపడా ఆధారాలు లేవు" in draft_answer or
+            any(v.verification_status == "insufficient_evidence" for v in ver_results)
+        )
+        has_unsupported = any(not v.supported for v in ver_results)
+
+        if is_insufficient:
+            overall_status = "insufficient_evidence"
+            confidence_label = "Insufficient evidence"
+        elif has_unsupported:
+            overall_status = "unsupported"
+            confidence_label = "Insufficient evidence"
+        else:
+            overall_status = "verified"
+            if ver_results:
+                avg_conf = sum(v.confidence for v in ver_results) / len(ver_results)
+                if avg_conf >= 0.85:
+                    confidence_label = "Strong evidence"
+                elif avg_conf >= 0.60:
+                    confidence_label = "Moderate evidence"
+                elif avg_conf >= 0.30:
+                    confidence_label = "Limited evidence"
+                else:
+                    confidence_label = "Insufficient evidence"
+            else:
+                confidence_label = "Insufficient evidence"
+
         # Compile and return ResearchResponse
         response = ResearchResponse(
             session_id=session_id,
@@ -316,7 +350,11 @@ class Orchestrator:
             verification_results=ver_results,
             iterations=iteration,
             trace=trace,
-            language=language
+            language=language,
+            query_context=query_analysis,
+            research_plan=research_plan,
+            overall_status=overall_status,
+            confidence_label=confidence_label
         )
         return response
 

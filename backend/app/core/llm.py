@@ -67,15 +67,29 @@ class EvidenceGroundedReasoner:
     def parse_evidence_from_prompt(cls, prompt: str) -> List[Dict[str, Any]]:
         """Extract structured evidence chunks passed into the prompt."""
         sources = []
-        pattern = r"Source\s*\[(\d+)\](?:\s*\([^)]*\))?:\s*\n(?:ID:\s*([^\n]+)\s*\n)?(?:Source(?:\s*Name)?:\s*([^\n]+)\s*\n)?(?:Type:\s*([^\n]+)\s*\n)?(?:Content|Text):\s*(.*?)(?=\n---|Source\s*\[|\"\"\"|$)"
-        for m in re.finditer(pattern, prompt, re.DOTALL):
-            sources.append({
-                "index": int(m.group(1)),
-                "id": m.group(2).strip() if m.group(2) else f"source_{m.group(1)}",
-                "source": m.group(3).strip() if m.group(3) else "Indian Legal Corpus",
-                "type": m.group(4).strip() if m.group(4) else "legal_document",
-                "content": m.group(5).strip()
-            })
+        chunks = re.split(r'Source\s*\[(\d+)\](?:\s*\([^)]*\))?:', prompt)
+        if len(chunks) > 1:
+            for i in range(1, len(chunks), 2):
+                try:
+                    idx = int(chunks[i])
+                    block = chunks[i+1]
+                    block_content = re.split(r'\n---|"""', block)[0]
+                    
+                    id_m = re.search(r'ID:\s*([^\n]+)', block_content)
+                    src_m = re.search(r'Source(?:\s*Name)?:\s*([^\n]+)', block_content)
+                    type_m = re.search(r'Type:\s*([^\n]+)', block_content)
+                    content_m = re.search(r'(?:Content|Text):\s*(.*)', block_content, re.DOTALL)
+                    
+                    content_text = content_m.group(1).strip() if content_m else block_content.strip()
+                    sources.append({
+                        "index": idx,
+                        "id": id_m.group(1).strip() if id_m else f"source_{idx}",
+                        "source": src_m.group(1).strip() if src_m else "Indian Legal Corpus",
+                        "type": type_m.group(1).strip() if type_m else "legal_document",
+                        "content": content_text
+                    })
+                except Exception:
+                    pass
         return sources
 
     @classmethod
@@ -503,6 +517,10 @@ class EvidenceGroundedReasoner:
         source_1 = sources[0]
         s1_content = source_1["content"].lower()
 
+        # Check for provision mismatch between requested query and retrieved evidence
+        q_art_m = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్)\s*(\d+[A-Za-z]*)', prompt, re.IGNORECASE)
+        s1_art_m = re.search(r'Article\s*(\d+[A-Za-z]*)', source_1["content"], re.IGNORECASE)
+
         # Domain alignment check: Motor vehicle queries cannot be verified against constitutional articles
         p_lower = prompt.lower()
         is_mv_prompt = any(w in p_lower for w in ["car", "vehicle", "traffic", "accident", "electric pole", "cow came", "dashed"])
@@ -515,13 +533,10 @@ class EvidenceGroundedReasoner:
                 "issues": ["Domain Mismatch: Motor Vehicle Law query cannot be supported by Constitutional articles."],
                 "importance": "high",
                 "verification_status": "unsupported",
+                "confidence_label": "Insufficient evidence",
                 "evidence_links": []
             })
             return {"verification_results": results}
-
-        # Check for provision mismatch between requested query and retrieved evidence
-        q_art_m = re.search(r'(?:Article|Art\.|अनुच्छेद|ఆర్టికల్)\s*(\d+[A-Za-z]*)', prompt, re.IGNORECASE)
-        s1_art_m = re.search(r'Article\s*(\d+[A-Za-z]*)', source_1["content"], re.IGNORECASE)
         
         if q_art_m and s1_art_m:
             q_art = q_art_m.group(1).upper()
@@ -535,6 +550,7 @@ class EvidenceGroundedReasoner:
                     "issues": [f"Provision mismatch: {q_art} vs {s1_art}"],
                     "importance": "critical",
                     "verification_status": "unsupported",
+                    "confidence_label": "Insufficient evidence",
                     "evidence_links": []
                 })
                 return {"verification_results": results}
@@ -560,10 +576,11 @@ class EvidenceGroundedReasoner:
                 "claim": f"Article {art_val} of the Constitution of India guarantees and specifies the constitutional provisions as set forth in the authoritative text.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.95,
+                "confidence": 0.92,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
             if len(sources) > 1:
@@ -571,10 +588,11 @@ class EvidenceGroundedReasoner:
                     "claim": f"The legal proposition is corroborated by retrieved constitutional and statutory authority [{sources[1]['index']}].",
                     "supported": True,
                     "evidence_index": sources[1]["index"],
-                    "confidence": 0.95,
+                    "confidence": 0.90,
                     "issues": [],
                     "importance": "high",
                     "verification_status": "supported",
+                    "confidence_label": "Strong evidence",
                     "evidence_links": [{"evidence_index": sources[1]["index"], "relationship": "supports"}]
                 })
             return {"verification_results": results}
@@ -586,10 +604,11 @@ class EvidenceGroundedReasoner:
                 "claim": f"The provisions of the {sched_name} of the Constitution of India govern the specified constitutional subject matter.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.98,
+                "confidence": 0.92,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
             return {"verification_results": results}
@@ -599,10 +618,11 @@ class EvidenceGroundedReasoner:
                 "claim": "The POSH Act 2013 provides statutory redressal including filing complaints within 3 months to the Internal Complaints Committee, interim transfer/leave relief, and compensation.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.96,
+                "confidence": 0.92,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
             if len(sources) > 1:
@@ -610,10 +630,11 @@ class EvidenceGroundedReasoner:
                     "claim": "In Vishaka v. State of Rajasthan (1997), the Supreme Court affirmed that workplace sexual harassment violates Articles 14, 15, and 21 of the Constitution.",
                     "supported": True,
                     "evidence_index": sources[1]["index"],
-                    "confidence": 0.95,
+                    "confidence": 0.90,
                     "issues": [],
                     "importance": "high",
                     "verification_status": "supported",
+                    "confidence_label": "Strong evidence",
                     "evidence_links": [{"evidence_index": sources[1]["index"], "relationship": "supports"}]
                 })
         elif "regulation 3" in s1_content or "insider" in s1_content or "upsi" in s1_content:
@@ -621,10 +642,11 @@ class EvidenceGroundedReasoner:
                 "claim": "SEBI PIT Regulations strictly prohibit communication or procurement of UPSI except for legitimate business purposes.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.96,
+                "confidence": 0.92,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
         elif "section 138" in s1_content or "dishonour" in s1_content or "cheque" in s1_content:
@@ -632,10 +654,11 @@ class EvidenceGroundedReasoner:
                 "claim": "Section 138 of Negotiable Instruments Act mandates giving written notice within 30 days of receiving bank dishonour information.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.98,
+                "confidence": 0.92,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
         else:
@@ -643,10 +666,11 @@ class EvidenceGroundedReasoner:
                 "claim": "Statutory and judicial authorities in the Indian legal corpus support the legal propositions stated.",
                 "supported": True,
                 "evidence_index": source_1["index"],
-                "confidence": 0.90,
+                "confidence": 0.88,
                 "issues": [],
                 "importance": "high",
                 "verification_status": "supported",
+                "confidence_label": "Strong evidence",
                 "evidence_links": [{"evidence_index": source_1["index"], "relationship": "supports"}]
             })
 

@@ -153,6 +153,11 @@ export default function ClaimVerification({ verifications, onSelectEvidence }: C
                   <span className="font-mono font-bold text-gray-200">
                     {(ver.confidence * 100).toFixed(0)}%
                   </span>
+                  {ver.confidence_label && (
+                    <span className="text-[10px] text-teal-300 font-sans ml-1 px-1.5 py-0.2 bg-teal-950/40 rounded border border-teal-800/40">
+                      {ver.confidence_label}
+                    </span>
+                  )}
                 </div>
                 
                 {ver.evidence_links && ver.evidence_links.length > 0 ? (

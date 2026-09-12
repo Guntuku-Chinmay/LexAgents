@@ -4,9 +4,21 @@ import uuid
 import logging
 from typing import List, Dict, Any, Optional
 from backend.app.core.llm import generate_chat_completion
-from backend.app.models.schemas import Evidence, VerificationResult, QueryAnalysis
+from backend.app.models.schemas import Evidence, VerificationResult, QueryContext, QueryAnalysis
 
 logger = logging.getLogger(__name__)
+
+def get_confidence_label(score: float, supported: bool, status: str) -> str:
+    """Derive calibrated categorical confidence label from evidence quality."""
+    if not supported or status in ("unsupported", "contradicted", "insufficient_evidence"):
+        return "Insufficient evidence"
+    if score >= 0.85:
+        return "Strong evidence"
+    if score >= 0.60:
+        return "Moderate evidence"
+    if score >= 0.30:
+        return "Limited evidence"
+    return "Insufficient evidence"
 
 class VerificationAgent:
     def verify(
@@ -14,7 +26,7 @@ class VerificationAgent:
         answer: str,
         evidence: List[Evidence],
         query: str = "",
-        query_analysis: Optional[QueryAnalysis] = None
+        query_analysis: Optional[QueryContext] = None
     ) -> List[VerificationResult]:
         """
         Verify claims made in the synthesized answer against the retrieved evidence.
@@ -38,6 +50,7 @@ class VerificationAgent:
                     claim_id=str(uuid.uuid4()),
                     importance="high",
                     verification_status="insufficient_evidence",
+                    confidence_label="Insufficient evidence",
                     evidence_links=[]
                 )
             ]
@@ -54,11 +67,12 @@ class VerificationAgent:
                     claim_id=str(uuid.uuid4()),
                     importance="high",
                     verification_status="insufficient_evidence",
+                    confidence_label="Insufficient evidence",
                     evidence_links=[]
                 )
             ]
 
-        # Check for catastrophic Domain Mismatch (e.g., Motor Vehicle query vs Constitutional Article)
+        # Check for catastrophic Domain Mismatch
         if query_analysis:
             primary_domain = query_analysis.primary_domain
             for ev in evidence:
@@ -76,6 +90,7 @@ class VerificationAgent:
                             claim_id=str(uuid.uuid4()),
                             importance="high",
                             verification_status="unsupported",
+                            confidence_label="Insufficient evidence",
                             evidence_links=[]
                         )
                     ]
@@ -96,9 +111,11 @@ class VerificationAgent:
                                     claim_id=str(uuid.uuid4()),
                                     importance="high",
                                     verification_status="unsupported",
+                                    confidence_label="Insufficient evidence",
                                     evidence_links=[]
                                 )
                             ]
+
 
         # 1. Deterministic prep: Map citations inline
         citation_matches = re.findall(r'\[(\d+)\]', answer)
@@ -250,6 +267,7 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
                 
                 claim_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{claim[:40]}_{idx_item}"))
                 
+                confidence_label = get_confidence_label(confidence, supported, status)
                 verification_results.append(
                     VerificationResult(
                         claim=claim,
@@ -261,6 +279,7 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
                         claim_id=claim_id,
                         importance=importance,
                         verification_status=status,
+                        confidence_label=confidence_label,
                         evidence_links=evidence_links
                     )
                 )
@@ -277,6 +296,7 @@ Respond ONLY with valid JSON. Do not include markdown code block formatting in y
                     claim_id=str(uuid.uuid4()),
                     importance="high",
                     verification_status="unsupported",
+                    confidence_label="Insufficient evidence",
                     evidence_links=[]
                 )
             )

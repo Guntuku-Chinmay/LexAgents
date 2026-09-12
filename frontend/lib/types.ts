@@ -21,6 +21,7 @@ export interface VerificationResult {
   importance?: string; // 'high' | 'medium' | 'low'
   verification_status?: string; // 'supported' | 'partially_supported' | 'unsupported' | 'contradicted' | 'insufficient_evidence'
   evidence_links?: { evidence_id: string; relationship: string }[];
+  confidence_label?: string; // 'Strong evidence' | 'Moderate evidence' | 'Limited evidence' | 'Insufficient evidence'
 }
 
 export interface ResearchTraceStep {
@@ -37,6 +38,10 @@ export interface ResearchResponse {
   iterations: number;
   trace: ResearchTraceStep[];
   language?: string;
+  query_context?: any;
+  research_plan?: any;
+  overall_status?: string; // 'verified' | 'unsupported' | 'insufficient_evidence'
+  confidence_label?: string;
 }
 
 export interface EvaluationRunResult {

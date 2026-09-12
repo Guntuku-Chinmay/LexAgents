@@ -29,6 +29,8 @@ export default function Home() {
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [reflections, setReflections] = useState<any[]>([]);
+  const [overallStatus, setOverallStatus] = useState<string | undefined>(undefined);
+  const [confidenceLabel, setConfidenceLabel] = useState<string | undefined>(undefined);
 
   const handleResearchStart = (query: string) => {
     setIsResearching(true);
@@ -39,6 +41,8 @@ export default function Home() {
     setTasks([]);
     setRuns([]);
     setReflections([]);
+    setOverallStatus(undefined);
+    setConfidenceLabel(undefined);
     setError(null);
     setSelectedEvidenceId(null);
   };
@@ -48,6 +52,8 @@ export default function Home() {
     setCitations(res.citations);
     setVerifications(res.verification_results);
     setTrace(res.trace);
+    setOverallStatus(res.overall_status);
+    setConfidenceLabel(res.confidence_label);
     setIsResearching(false);
     setSessionId(res.session_id);
 
@@ -99,6 +105,8 @@ export default function Home() {
                   answer={answer}
                   citations={citations}
                   onSelectCitation={handleSelectCitation}
+                  overallStatus={overallStatus}
+                  confidenceLabel={confidenceLabel}
                 />
 
                 {/* Evidence Panel (Spans bottom under the answer) */}
